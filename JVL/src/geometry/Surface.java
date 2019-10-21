@@ -39,10 +39,10 @@ public class Surface {
         for(int i = 0; i < nSpan; i++) {
             for(int j = 0; j < nChord; j++) {
                 panels[i][j] = new Panel();
-                Cartesian x1y1 = new Cartesian(j*dx,i*dy,0);
-                Cartesian x2y1 = new Cartesian((j+1)*dx,i*dy,0);
-                Cartesian x2y2 = new Cartesian((j+1)*dx,(i+1)*dy,0);
-                Cartesian x1y2 = new Cartesian(j*dx,(i+1)*dy,0);
+                Cartesian x1y1 = new Cartesian(origin.x + j*dx,origin.y + i*dy,0);
+                Cartesian x2y1 = new Cartesian(origin.x +(j+1)*dx,origin.y +i*dy,0);
+                Cartesian x2y2 = new Cartesian(origin.x +(j+1)*dx,origin.y +(i+1)*dy,0);
+                Cartesian x1y2 = new Cartesian(origin.x +j*dx,origin.y +(i+1)*dy,0);
                 panels[i][j].setVertices(x1y1, x2y1, x2y2, x1y2);
             }
         }

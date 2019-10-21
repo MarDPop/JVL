@@ -132,7 +132,7 @@ public class VL2 {
 
         Matrix x = new Matrix(panels.size(),1);
 
-        SquareMatrix.GaussSeidel(AIC, b, 1e-6, x);
+        SquareMatrix.SOR(AIC, b, 1e-6, x,0.5);
 
         induced = AIC.mult(x);
 

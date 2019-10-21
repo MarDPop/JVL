@@ -68,11 +68,8 @@ public class App {
     private static void setupSim() {
         Cartesian o = new Cartesian(1,0,0);
 
-        Surface s1 = new Surface(o,0.5,1,5,5);
-        Surface s2 = new Surface(o,0.5,-1,5,5);
-
-        sim.surfaces.add(s1);
-        sim.surfaces.add(s2);
+        sim.surfaces.add(new Surface(o,0.5,1,8,8));
+        sim.surfaces.add(new Surface(o,0.5,-1,8,8));
 
         vp.setSurfaces(sim.surfaces);
 

@@ -152,4 +152,28 @@ public class SquareMatrix extends Matrix {
         System.out.println("Solution in " +iter);
         return x;
     }
+
+    public static Matrix SOR(SquareMatrix A, Matrix b, double tol, Matrix x, double relaxation) {
+        double err = tol*2;
+        int iter = 1;
+        double w = 1-relaxation;
+        while(err > tol && iter < 10000)  {
+            err = 0;
+            for(int i = 0; i < b.m; i++) {
+                double sum = b.A[i][0];
+                for(int j = 0; j < b.m; j++) {
+                    if(j != i) {
+                        sum -= A.A[i][j]*x.A[j][0];
+                    }
+                }
+                double tmp = x.A[i][0];
+                x.A[i][0] = w*x.A[i][0] + relaxation*sum/A.A[i][i];
+                tmp -= x.A[i][0];
+                err += tmp*tmp;
+            }
+            iter++;
+        }
+        System.out.println("Solution in " +iter);
+        return x;
+    }
 }
