@@ -137,8 +137,8 @@ public class ViewingPane extends JPanel implements MouseListener, MouseMotionLis
                         int[] point7 = camera.projectToScreenFrame(liftVector);
                         g2d.drawLine(centerX + point3[0], centerY - point3[1], centerX + point7[0],
                                 centerY - point7[1]);
-                        g2d.setColor(Color.gray);
-                        // plotArrow(panel.getCollocationPoint(), panel.getCollocationPoint().add(panel.getNormal()));
+                        //g2d.setColor(Color.gray);
+                        //plotArrow(panel.getCollocationPoint(), panel.getCollocationPoint().add(panel.getNormal()));
                     }
                 }
             }

@@ -139,11 +139,11 @@ public class Panel {
         // Contribution from Infinite Vortex Segment A
         Cartesian VA = new Cartesian(0,r1.z,-r1.y);
         m = VA.y*VA.y+VA.z*VA.z;
-        VA.multBy((1+r1_normalized.x)/m);
+        VA.multBy((1-r1_normalized.x)/m);
         // Contribution from Infinite Vortex Segment B
-        Cartesian VB = new Cartesian(0,-r2.z,r2.y); // this is inverted from paper (check )
+        Cartesian VB = new Cartesian(0,r2.z,-r2.y); 
         m = VB.y*VB.y+VB.z*VB.z;
-        VB.multBy((1+r2_normalized.x)/m);
+        VB.multBy((r2_normalized.x-1)/m); // this is inverted from paper (check ) I think this is correct because the B segment vortex vector points away thus dot product is inverted (cross product remains same)
 
         return VAB.addTo(VA).addTo(VB).multBy(FOUR_PI_INV);
     }
@@ -221,6 +221,10 @@ public class Panel {
 
     public double getArea() {
         return this.area;
+    }
+
+    public Cartesian getCenter() {
+        return this.center;
     }
 
 }

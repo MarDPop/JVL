@@ -62,7 +62,7 @@ public class VL3 {
 
     private Cartesian totalMoment;
 
-    private Cartesian reference;
+    private Cartesian reference = new Cartesian();
 
     public VL3() {}
 
@@ -110,59 +110,56 @@ public class VL3 {
             }
         }
 
-        AIC = new SquareMatrix(panels.size());
-        b = new Matrix(panels.size(),1);
-        // w = new Cartesian[panels.size()][panels.size()];
+        int n = panels.size();
+        AIC = new SquareMatrix(n);
+        b = new Matrix(n,1);
+        w = new Cartesian[panels.size()][panels.size()];
 
-        for(int i = 0; i < panels.size();i++) {
+        for(int i = 0; i < n;i++) {
             Panel p_i  = panels.get(i);
             Cartesian r_i = p_i.getCollocationPoint();
             Cartesian n_i = p_i.getNormal();
-            for(int j = 0; j < panels.size(); j++) {
-                AIC.set(i,j,panels.get(j).getInducedVelocityFactorAtPoint(r_i).dot(n_i));
+            for(int j = 0; j < n; j++) {
+                w[i][j] = panels.get(j).getInducedVelocityFactorAtPoint(r_i);
+                AIC.set(i,j,w[i][j].dot(n_i));
             }
             b.set(i,0,freestream.dot(n_i));
         }
 
         
-        Matrix x = new Matrix(panels.size(),1);
+        Matrix x = new Matrix(n,1);
 
-        SquareMatrix.SOR(AIC, b, 1e-12, x,0.01,0.2);
+        SquareMatrix.SOR(AIC, b, 1e-8, x,0.001,0.1);
 
         // Matrix x = AIC.inv().mult(b);
 
         induced = AIC.mult(x);
 
-        double LIFT = 0;
-        double DRAG = 0;
-        Cartesian MOMENT = new Cartesian();
-        
-        double rho = density*airspeed;
         for(int i = 0; i < panels.size(); i++) {
-            Panel p_i = panels.get(i);
-            // Cartesian v = new Cartesian(freestream);
-            p_i.setCirculation(x.get(i,0));
-            double circ = rho*x.get(i,0);
-
-            double lift = circ*(p_i.vertices[2].y-p_i.vertices[0].y);
-
-            double drag = Math.abs(circ*induced.get(i,0)*p_i.getNormal().z/airspeed);
-
-            // Check this
-            if(p_i.getNormal().z < 0) {
-                LIFT += lift;
-            } else {
-                LIFT -= lift;
-            }
-            
-            DRAG += drag;
-            Cartesian d = freestream.mult(drag/airspeed);
-            
-            Cartesian l = p_i.getVortexVector().cross(freestream);
-            l.normalize().multBy(lift);
-            Cartesian f = new Cartesian(d.x+l.x,d.y+l.y,d.z+l.z);
-            panels.get(i).setForce(f);
+            panels.get(i).setCirculation(x.get(i,0));
         }
+
+        totalForce = new Cartesian();
+        totalMoment = new Cartesian();
+
+        for(int i = 0; i< n;i++){
+            Panel p_i = panels.get(i);
+            Cartesian center = p_i.getCenter();
+            Cartesian local_induced = new Cartesian();
+            for(int j = 0; j < n; j++){
+                Panel p_j = panels.get(j);
+                local_induced.addTo(p_j.getInducedVelocityFactorAtPoint(center).multBy(p_j.getCirculation()));
+            }
+            Cartesian local_velocity = freestream.add(local_induced);
+            Cartesian local_force = local_velocity.cross(p_i.getVortexVector()).multBy(density*p_i.getCirculation());
+            p_i.setForce(local_force);
+            totalForce.addTo(local_force);
+            totalMoment.addTo(local_force.cross(p_i.getCenter().sub(reference)));
+        }
+
+        double LIFT = (-totalForce.x*freestream.z+totalForce.z*freestream.x)/airspeed;
+        double DRAG = (totalForce.x*freestream.x+totalForce.z*freestream.z)/airspeed;
+
         System.out.println("Lift = " + LIFT);
         System.out.println("Induced Drag = " + DRAG);
     }

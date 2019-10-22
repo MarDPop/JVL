@@ -130,15 +130,12 @@ public class VL2 {
             b.set(i,0,-freestream.dot(p_i.getNormal()));
         }
 
-        /*
+        
         Matrix x = new Matrix(panels.size(),1);
 
-        Matrix x = AIC.inv().mult(b);
-
-        SquareMatrix.SOR(AIC, b, 1e-6, x,0.25);
-        */
-
-        Matrix x = AIC.inv().mult(b);
+        SquareMatrix.SOR(AIC, b, 1e-8, x,0.02,0.5);
+        
+        //Matrix x = AIC.inv().mult(b);
 
         induced = AIC.mult(x);
 

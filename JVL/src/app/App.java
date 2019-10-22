@@ -66,18 +66,15 @@ public class App {
     }
 
     private static void setupSim() {
-        Cartesian o = new Cartesian(1,-1,0);
-
-        sim.surfaces.add(new Surface(o,0.5,2,6,12));
-        //sim.surfaces.add(new Surface(o,0.5,-1,8,8));
-
+        sim.surfaces.add(new Surface(new Cartesian(1,0,0),0.5,1,8,16));
+        sim.surfaces.add(new Surface(new Cartesian(1,0,0),0.5,-1,8,16));
         /*
         o = new Cartesian(2,-0.5,0);
         sim.surfaces.add(new Surface(o,0.25,1,6,6));
         sim.surfaces.add(new Surface(o,0.25,-0.5,4,4));
         */
 
-        // sim.surfaces.add(new Surface(new Cartesian(3,-0.5,0),0.25,1,4,8));
+        //sim.surfaces.add(new Surface(new Cartesian(3,-0.5,0),0.25,1,6,12));
 
         vp.setSurfaces(sim.surfaces);
 
