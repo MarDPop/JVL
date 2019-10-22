@@ -16,6 +16,8 @@ public class App {
     static ViewingPane vp = new ViewingPane();
 
     public static void main(String[] args) throws Exception {
+        // valueTest();
+
         simTest();
     }
 
@@ -66,15 +68,15 @@ public class App {
     }
 
     private static void setupSim() {
-        sim.surfaces.add(new Surface(new Cartesian(1,0,0),0.5,1,8,16));
-        sim.surfaces.add(new Surface(new Cartesian(1,0,0),0.5,-1,8,16));
+        sim.surfaces.add(new Surface(new Cartesian(1,-1,0),0.5,2,4,6));
+        //sim.surfaces.add(new Surface(new Cartesian(1,0,0),0.5,-1,8,16));
         /*
         o = new Cartesian(2,-0.5,0);
         sim.surfaces.add(new Surface(o,0.25,1,6,6));
         sim.surfaces.add(new Surface(o,0.25,-0.5,4,4));
         */
 
-        //sim.surfaces.add(new Surface(new Cartesian(3,-0.5,0),0.25,1,6,12));
+        sim.surfaces.add(new Surface(new Cartesian(2,-0.5,0),0.25,1,2,4));
 
         vp.setSurfaces(sim.surfaces);
 
@@ -119,6 +121,9 @@ public class App {
         A.set(2,3,-1);
         A.set(3,2,-1);
         A.set(3,3,2);
+        A.set(4,1,1);
+        A.set(4,3,3);
+        A.set(4,4,1);
 
         Matrix b = new Matrix(5,1);
         b.set(0,0,1);
@@ -130,6 +135,14 @@ public class App {
         Matrix x = new Matrix(5,1);
 
         SquareMatrix.GaussSeidel(A,b,1e-6,x);
+
+        Matrix x2 = new Matrix(5,1);
+
+        SquareMatrix.SOR(A,b,1e-9,x2,0.1,0.5);
+
+        double det = A.det();
+
+        SquareMatrix in = A.inv();
 
         System.out.println(x.get(0,0)+" "+x.get(1,0)+" "+x.get(2,0)+" "+x.get(3,0));
 

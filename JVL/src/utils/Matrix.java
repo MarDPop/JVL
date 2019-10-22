@@ -27,6 +27,24 @@ public class Matrix {
         this.n = B[0].length;
     }
 
+    public Matrix(double[] B, boolean column) {
+        if(column) {
+            this.m = B.length;
+            this.n = 1;
+        } else {
+            this.n = B.length;
+            this.m = 1;
+        }
+        this.A = new double[m][n];
+        for(int i = 0; i < B.length; i++) {
+            if(column) {
+                A[i][0] = B[i];
+            } else {
+                A[0][i] = B[i];
+            }
+        }
+    }
+
     public Matrix(Matrix B) {
         this.m = B.A.length;
         this.n = B.A[0].length;

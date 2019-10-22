@@ -123,15 +123,15 @@ public class VL3 {
                 w[i][j] = panels.get(j).getInducedVelocityFactorAtPoint(r_i);
                 AIC.set(i,j,w[i][j].dot(n_i));
             }
-            b.set(i,0,freestream.dot(n_i));
+            b.set(i,0,-freestream.dot(n_i));
         }
 
-        
         Matrix x = new Matrix(n,1);
 
-        SquareMatrix.SOR(AIC, b, 1e-8, x,0.001,0.1);
+        SquareMatrix.SOR(AIC, b, 1e-8, x,0.001,0.5);
 
-        // Matrix x = AIC.inv().mult(b);
+        //Matrix x = AIC.inv().mult(b);
+        //double d = AIC.det();
 
         induced = AIC.mult(x);
 
