@@ -4,8 +4,10 @@ import utils.Cartesian;
 
 public class Panel {
 
+    public static final double FOUR_PI_INV = 0.25/Math.PI;
+
     /**
-     * Collocation point (1/4 chord along centerline) point where flow needs to be negated 
+     * Collocation point (1/4 chord along centerline) point where flow needs to be negated aka. Control Point
      */
     private Cartesian collocation; 
 
@@ -70,10 +72,14 @@ public class Panel {
      * @param n
      * @param area
      */
-    public Panel(Cartesian transverse, Cartesian collocation, Cartesian n, double area) {
-        this.transverse = transverse;
+    public Panel(Cartesian A, Cartesian B, Cartesian n, Cartesian collocation, double lambda) {
+        this.transverse = A.add(B).mult(0.5);
+        this.A = A;
+        this.B = B;
+        this.r0 = B.sub(A);
         this.collocation = collocation;
         this.normal = n;
+        this.lambda = lambda;
     }
 
     public Panel(Cartesian x1y1, Cartesian x2y1,Cartesian x2y2,Cartesian x1y2){
@@ -99,13 +105,6 @@ public class Panel {
         this.normal = edge1.cross(edge2); // z up for positive x and positive y
         this.area = this.normal.getMagnitude(); 
         
-        /*
-        if (normal.z > 0) {
-            this.normal = this.normal.mult(1/this.area);
-        } else {
-            this.normal = this.normal.mult(-1/this.area);
-        }
-        */
         this.normal = this.normal.mult(1/this.area);
 
         Cartesian midpointLo = x1y1.add(x1y2).mult(0.5);
@@ -121,6 +120,32 @@ public class Panel {
         this.A = this.vertices[0].add(edge1.mult(0.25));
         this.B = this.vertices[1].add(edge3.mult(0.25));
         this.r0 = B.sub(A);
+    }
+
+    public Cartesian getInducedVelocityFactorAtPoint(Cartesian point) {
+
+        // Distance to point from Point A (r1) and Point B (r2)
+        Cartesian r1 = point.sub(this.A);
+        Cartesian r2 = point.sub(this.B);
+
+        // get norm
+        Cartesian r1_normalized = r1.mult(1/r1.getMagnitude());
+        Cartesian r2_normalized = r2.mult(1/r2.getMagnitude());
+
+        // Contribution from Vortex A-B (transverse segment)
+        Cartesian VAB = r1.cross(r2); // temporary storage
+        double m = VAB.x*VAB.x+VAB.y*VAB.y+VAB.z*VAB.z;
+        VAB.multBy(r0.dot(r1_normalized.sub(r2_normalized))/m);
+        // Contribution from Infinite Vortex Segment A
+        Cartesian VA = new Cartesian(0,r1.z,-r1.y);
+        m = VA.y*VA.y+VA.z*VA.z;
+        VA.multBy((1+r1_normalized.x)/m);
+        // Contribution from Infinite Vortex Segment B
+        Cartesian VB = new Cartesian(0,-r2.z,r2.y); // this is inverted from paper (check )
+        m = VB.y*VB.y+VB.z*VB.z;
+        VB.multBy((1+r2_normalized.x)/m);
+
+        return VAB.addTo(VA).addTo(VB).multBy(FOUR_PI_INV);
     }
 
     /* Getters and Setters */

@@ -157,7 +157,7 @@ public class SquareMatrix extends Matrix {
         double err = tol*2;
         int iter = 1;
         double w = 1-relaxation;
-        while(err > tol && iter < 10000)  {
+        while(err > tol && iter < 100000)  {
             err = 0;
             for(int i = 0; i < b.m; i++) {
                 double sum = b.A[i][0];
@@ -168,6 +168,32 @@ public class SquareMatrix extends Matrix {
                 }
                 double tmp = x.A[i][0];
                 x.A[i][0] = w*x.A[i][0] + relaxation*sum/A.A[i][i];
+                tmp -= x.A[i][0];
+                err += tmp*tmp;
+            }
+            iter++;
+        }
+        System.out.println("Solution in " +iter);
+        return x;
+    }
+
+    public static Matrix SOR(SquareMatrix A, Matrix b, double tol, Matrix x, double relaxationMin, double relaxationMax) {
+        double err = tol*2;
+        int iter = 1;
+        double dw = (relaxationMax-relaxationMin)/100000;
+        while(err > tol && iter < 100000)  {
+            err = 0;
+            double w = relaxationMin + dw*iter; 
+            double w1 = 1-w;
+            for(int i = 0; i < b.m; i++) {
+                double sum = b.A[i][0];
+                for(int j = 0; j < b.m; j++) {
+                    if(j != i) {
+                        sum -= A.A[i][j]*x.A[j][0];
+                    }
+                }
+                double tmp = x.A[i][0];
+                x.A[i][0] = w1*x.A[i][0] + w*sum/A.A[i][i];
                 tmp -= x.A[i][0];
                 err += tmp*tmp;
             }

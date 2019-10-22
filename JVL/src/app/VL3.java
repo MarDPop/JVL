@@ -7,7 +7,11 @@ import geometry.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 
-public class VL2 {
+
+/**
+ * Vortex Lattice method, use http://www.cta-dlr2009.ita.br/Proceedings/PDF/59306.pdf for reference
+ */
+public class VL3 {
 
     public static double GAS_R = 8.31445;
 
@@ -60,7 +64,7 @@ public class VL2 {
 
     private Cartesian reference;
 
-    public VL2() {}
+    public VL3() {}
 
     public void setSurfaces(ArrayList<Surface> s) {
         this.surfaces = s;
@@ -108,37 +112,24 @@ public class VL2 {
 
         AIC = new SquareMatrix(panels.size());
         b = new Matrix(panels.size(),1);
-        w = new Cartesian[panels.size()][panels.size()];
+        // w = new Cartesian[panels.size()][panels.size()];
 
         for(int i = 0; i < panels.size();i++) {
             Panel p_i  = panels.get(i);
             Cartesian r_i = p_i.getCollocationPoint();
+            Cartesian n_i = p_i.getNormal();
             for(int j = 0; j < panels.size(); j++) {
-                Panel p_j  = panels.get(j);
-
-                Cartesian r1 = p_j.getA().sub(r_i);
-                Cartesian r2 = p_j.getB().sub(r_i);
-
-                Cartesian v = p_j.getVortexVector();
-
-                double A_bound = ((v.x*r1.x+v.y*r1.y)/r1.getMagnitude() - (v.x*r2.x+v.y*r2.y)/r2.getMagnitude()) /(r1.x*r2.y-r2.x*r1.y);
-                double A_left = (1+r1.x/r1.r)/r1.y;
-                double A_right = (1+r2.x/r2.r)/r2.y;
-
-                AIC.set(i,j,fourpi*(A_bound-A_left+A_right));
+                AIC.set(i,j,panels.get(j).getInducedVelocityFactorAtPoint(r_i).dot(n_i));
             }
-            b.set(i,0,-freestream.dot(p_i.getNormal()));
+            b.set(i,0,freestream.dot(n_i));
         }
 
-        /*
+        
         Matrix x = new Matrix(panels.size(),1);
 
-        Matrix x = AIC.inv().mult(b);
+        SquareMatrix.SOR(AIC, b, 1e-12, x,0.01,0.2);
 
-        SquareMatrix.SOR(AIC, b, 1e-6, x,0.25);
-        */
-
-        Matrix x = AIC.inv().mult(b);
+        // Matrix x = AIC.inv().mult(b);
 
         induced = AIC.mult(x);
 
@@ -152,7 +143,10 @@ public class VL2 {
             // Cartesian v = new Cartesian(freestream);
             p_i.setCirculation(x.get(i,0));
             double circ = rho*x.get(i,0);
+
             double lift = circ*(p_i.vertices[2].y-p_i.vertices[0].y);
+
+            double drag = Math.abs(circ*induced.get(i,0)*p_i.getNormal().z/airspeed);
 
             // Check this
             if(p_i.getNormal().z < 0) {
@@ -160,10 +154,10 @@ public class VL2 {
             } else {
                 LIFT -= lift;
             }
-
-            double drag = circ*induced.get(i,0)*p_i.getNormal().z/airspeed;
-            Cartesian d = freestream.mult(drag/airspeed);
+            
             DRAG += drag;
+            Cartesian d = freestream.mult(drag/airspeed);
+            
             Cartesian l = p_i.getVortexVector().cross(freestream);
             l.normalize().multBy(lift);
             Cartesian f = new Cartesian(d.x+l.x,d.y+l.y,d.z+l.z);
