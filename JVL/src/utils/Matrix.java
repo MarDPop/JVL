@@ -395,4 +395,57 @@ public class Matrix {
         }
     }
 
+    public static double norm(Matrix A) {
+        return Math.sqrt(dot(A,A));
+    }
+
+    public static double normalize(Matrix A) {
+        if(A.n == 1) {
+            double sum = 0;
+            for(int i = 0; i < A.m; i++) {
+                sum += A.A[i][0]*A.A[i][0];
+            }
+            sum = 1/Math.sqrt(sum);
+            for(int i = 0; i < A.m; i++) {
+                A.A[i][0] *= sum;
+            }
+            return 1/sum;
+        } else {
+            if(A.m == 1) {
+                double sum = 0;
+                for(int i = 0; i < A.n; i++) {
+                    sum += A.A[0][i]*A.A[0][1];
+                }
+                sum = 1/Math.sqrt(sum);
+                for(int i = 0; i < A.n; i++) {
+                    A.A[0][i] *= sum;
+                }
+                return 1/sum;
+            } else {
+                for(int j = 0; j < A.n; j++) {
+                    double sum = 0;
+                    for(int i = 0; i < A.m; i++) {
+                        sum += A.A[i][j]*A.A[i][j];
+                    }
+                    sum = 1/Math.sqrt(sum);
+                    for(int i = 0; i < A.m; i++) {
+                        A.A[i][j] *= sum;
+                    }
+                }
+                return 0;
+            }
+        }
+    }
+
+    public void print() {
+        System.out.print("A = [");
+        for(int i = 0; i < m; i++) {
+            for(int j = 0; j < n-1; j++) {
+                System.out.print(A[i][j] + ", ");
+            }
+            System.out.println(A[i][n-1] + " ; ");
+        }
+        System.out.println("]");
+    }
+
 }

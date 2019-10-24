@@ -135,15 +135,27 @@ public class Panel {
         // Contribution from Vortex A-B (transverse segment)
         Cartesian VAB = r1.cross(r2); // temporary storage
         double m = VAB.x*VAB.x+VAB.y*VAB.y+VAB.z*VAB.z;
-        VAB.multBy(r0.dot(r1_normalized.sub(r2_normalized))/m);
+        if (m < 1e-15){
+            VAB.multBy(0.0);
+        } else {
+            VAB.multBy(r0.dot(r1_normalized.sub(r2_normalized))/m);
+        }
         // Contribution from Infinite Vortex Segment A
         Cartesian VA = new Cartesian(0,r1.z,-r1.y);
         m = VA.y*VA.y+VA.z*VA.z;
-        VA.multBy((1-r1_normalized.x)/m);
+        if (m < 1e-15){
+            VA.multBy(0);
+        } else {
+            VA.multBy((1+r1_normalized.x)/m);
+        }
         // Contribution from Infinite Vortex Segment B
         Cartesian VB = new Cartesian(0,r2.z,-r2.y); 
         m = VB.y*VB.y+VB.z*VB.z;
-        VB.multBy((r2_normalized.x-1)/m); // this is inverted from paper (check ) I think this is correct because the B segment vortex vector points away thus dot product is inverted (cross product remains same)
+        if (m < 1e-15){
+            VB.multBy(0);
+        } else {
+            VB.multBy(-(1+r2_normalized.x)/m); // this is inverted from paper (check ) I think this is correct because the B segment vortex vector points away thus dot product is inverted (cross product remains same)
+        } 
 
         return VAB.addTo(VA).addTo(VB).multBy(FOUR_PI_INV);
     }

@@ -569,15 +569,32 @@ public class SquareMatrix extends Matrix {
         return a /= Matrix.dot(b,b);
     }
 
-    public static double[] inveig(SquareMatrix A, double[] guess) {
+    public static Matrix inveig(SquareMatrix A, Matrix guess, double shift) throws MatrixException {
         SquareMatrix I = new SquareMatrix(A);
         for(int i = 0; i < A.m;i++) {
-            
+            I.A[i][i] -= shift;
         }
-        return guess;
+        
+        Object[] arr = I.PLUDecompose();
+        SquareMatrix LU = (SquareMatrix)arr[1];
+        int[] P = (int[]) arr[0];
+
+        Matrix w = new Matrix(guess);
+        for(int iter = 0; iter < 1000; iter++) {
+            double r = Matrix.normalize(guess);
+            SquareMatrix.LUSolve(LU, P, guess, w);
+            Matrix diff = w.sub(guess);
+            if(Matrix.norm(diff) < 0.0001*r){
+                return w;
+            }
+        }
+        return null;
     }
 
-    
+    public static double eigenvalueFromEigenvector(SquareMatrix A, Matrix eigenvector) {
+        normalize(eigenvector);
+        return norm(A.mult(eigenvector));
+    }
 
     /**
      * Givens Matrix for i and j where j > i
