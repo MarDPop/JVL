@@ -7,6 +7,7 @@ import utils.Cartesian;
 import utils.MyMath;
 import utils.SquareMatrix;
 import utils.Matrix;
+import utils.MatrixException;
 
 public class App {
     static JFrame gui;
@@ -143,6 +144,16 @@ public class App {
         double det = A.det();
 
         SquareMatrix in = A.inv();
+
+        Matrix x3 = new Matrix(5,1);
+
+        try {
+            Object[] arr = A.PLUDecompose();
+
+            SquareMatrix.LUSolve((SquareMatrix)arr[1],(int[]) arr[0],b,x3);
+        } catch (MatrixException e) {
+
+        }
 
         System.out.println(x.get(0,0)+" "+x.get(1,0)+" "+x.get(2,0)+" "+x.get(3,0));
 

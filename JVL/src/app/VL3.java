@@ -128,10 +128,14 @@ public class VL3 {
 
         Matrix x = new Matrix(n,1);
 
-        SquareMatrix.SOR(AIC, b, 1e-8, x,0.001,0.5);
-
-        //Matrix x = AIC.inv().mult(b);
-        //double d = AIC.det();
+        try {
+            Object[] arr = AIC.PLUDecompose();
+            SquareMatrix.LUSolve((SquareMatrix)arr[1],(int[]) arr[0],b,x);
+            
+        } catch (MatrixException e) {
+            System.out.println(e.getMessage());
+            SquareMatrix.SOR(AIC, b, 1e-8, x,0.001,0.5);
+        }
 
         induced = AIC.mult(x);
 

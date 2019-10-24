@@ -21,92 +21,16 @@ public class SquareMatrix extends Matrix {
 
     }
 
-    public SquareMatrix(int m, boolean identity) {
+    public SquareMatrix(int m, double a) {
         super(m,m);
-        if (identity) {
-            for(int i = 0; i < m ; i++) {
-                A[i][i] = 1;
-            }
+        for(int i = 0; i < m ; i++) {
+            A[i][i] = -a;
         }
     }
 
     /**
-     * Determinant
-     * @return
+     * Decomposes this matrix into a Pivoting array and Square Matrix consisting of Lower and Upper triangular decomposition
      */
-    public double detSlow() {
-        if(this.m == 2) {
-            return A[0][0]*A[1][1] - A[1][0]*A[0][1];
-        } else {
-            double sum = 0;
-            double sign = 1;
-            for(int j = 0; j < this.m; j++) {
-                sum += sign*A[0][j]*detMatrix(j).detSlow();
-                sign *= -1;
-            }
-            return sum;
-        }
-    }
-
-    /**
-     * Determinant
-     * @return
-     */
-    public double det2() {
-        if(this.m == 2) {
-            return A[0][0]*A[1][1] - A[1][0]*A[0][1];
-        } else {
-            double sum = 0;
-            double sign = 1;
-            boolean[] all = new boolean[this.m]; 
-            for(int i = 0; i < this.m; i++) {
-                all[i] = true;
-                sum += sign*A[0][i]*this.det2(1,all);
-                sign *= -1;
-                all[i] = false;
-            }
-            return sum;
-        }
-    }
-
-    public double det2(int i, boolean[] skip) {
-        if(this.m-i == 2) {
-            int lo = 0;
-            int hi = this.m;
-            for(int j = lo; j < hi; j++) {
-                if (!skip[j]) {
-                    lo = j;
-                    break;
-                }
-            }
-            for(int j = lo+1; j < hi; j++) {
-                if (!skip[j]) {
-                    hi = j;
-                    break;
-                }
-            }
-            return A[i][lo]*A[i+1][hi] - A[i+1][lo]*A[i][hi];
-        } else {
-            double sum = 0;
-            double sign = 1;
-            for(int j = 0; j < this.m; j++) {
-                if (!skip[j]) {
-                    skip[j] = true;
-                    sum += sign*A[i][j]*this.det2(i+1,skip);
-                    sign *= -1;
-                    skip[j] = false;
-                }
-            }
-            return sum;
-        }
-    }
-
-    public SquareMatrix LUMatrix() {
-        SquareMatrix LU = new SquareMatrix(this.m);
-
-        return LU;
-    }
-
     public Object[] PLUDecompose() throws MatrixException {
         /*
         UpperTriangularMatrix U = new UpperTriangularMatrix(this.m);
@@ -165,10 +89,17 @@ public class SquareMatrix extends Matrix {
         return new Object[]{P,new SquareMatrix(A)};
     }
 
+    /**
+     * Returns determinant
+     * @return
+     */
     public double det() {
         if(this.m == 2) {
             return A[0][0]*A[1][1] - A[1][0]*A[0][1];
-        } else {
+        } else if (this.m == 3){
+            return A[0][0]*(A[1][1]*A[2][2] - A[1][2]*A[2][1]) - A[0][1]*(A[1][0]*A[2][2]-A[1][2]*A[2][0]) + A[0][2]*(A[1][0]*A[2][1]-A[1][1]*A[2][0]);
+        } else if (this.m < 7) {
+            // technically 5 is largest where n! is about same as 2/3n^3 + n^2 but pivoting can be slow and this is more stable
             double sum = 0;
             double sign = 1;
             boolean[] all = new boolean[this.m]; 
@@ -179,31 +110,51 @@ public class SquareMatrix extends Matrix {
                 all[i] = false;
             }
             return sum;
+        } else {
+            try {
+                return LUPDeterminant();
+            } catch (MatrixException e) {
+                return -1;
+            }
         }
     }
 
     /**
-     * Matrix minor (values exluding row i and col j)
-     * @param j
+     * Determinant helper function
+     * @param i
+     * @param skip
      * @return
      */
-    public SquareMatrix detMatrix(int j) {
-        SquareMatrix out = new SquareMatrix(this.m-1);
-        int col;
-        for(int row = 1; row < this.m; row++) {
-            int i = row-1;
-            col = 0;
-            while(col < j) {
-                out.A[i][col] = this.A[row][col];
-                col++;
+    protected double det2(int i, boolean[] skip) {
+        if(this.m-i == 2) {
+            int lo = 0;
+            int hi = this.m;
+            for(int j = lo; j < hi; j++) {
+                if (!skip[j]) {
+                    lo = j;
+                    break;
+                }
             }
-            col++;
-            while(col < this.m) {
-                out.A[i][col-1] = this.A[row][col];
-                col++;
+            for(int j = lo+1; j < hi; j++) {
+                if (!skip[j]) {
+                    hi = j;
+                    break;
+                }
             }
+            return A[i][lo]*A[i+1][hi] - A[i+1][lo]*A[i][hi];
+        } else {
+            double sum = 0;
+            double sign = 1;
+            for(int j = 0; j < this.m; j++) {
+                if (!skip[j]) {
+                    skip[j] = true;
+                    sum += sign*A[i][j]*this.det2(i+1,skip);
+                    sign *= -1;
+                    skip[j] = false;
+                }
+            }
+            return sum;
         }
-        return out;
     }
 
     /**
@@ -244,13 +195,21 @@ public class SquareMatrix extends Matrix {
      * @return
      */
     public SquareMatrix inv() {
-        double det = 0;
-        SquareMatrix C = this.cofactor();
-        for (int j = 0; j < this.m; j++) {
-            det += this.A[0][j]*C.A[0][j];
+        if (this.m < 5) {
+            double det = 0;
+            SquareMatrix C = this.cofactor();
+            for (int j = 0; j < this.m; j++) {
+                det += this.A[0][j]*C.A[0][j];
+            }
+            det = 1/det;
+            return new SquareMatrix(C.transpose().mult(det));
+        } else {
+            try {
+                return LUInvert();
+            } catch (MatrixException e) {
+                return null;
+            }
         }
-        det = 1/det;
-        return new SquareMatrix(C.transpose().mult(det));
     }
 
     /**
@@ -271,7 +230,13 @@ public class SquareMatrix extends Matrix {
         return out;
     }
 
-    public Matrix LUSolve(Matrix b) throws MatrixException {
+    /**
+     * Solves Ax = B using LU decomposition overwriting Matrix A
+     * @param b
+     * @return
+     * @throws MatrixException
+     */
+    public Matrix LUOverwriteSolve(Matrix b) throws MatrixException {
         double[] x = new double[b.m];
 
         int[] P = new int[this.m+1];
@@ -336,6 +301,95 @@ public class SquareMatrix extends Matrix {
         return new Matrix(x,true);
     }
 
+    /**
+     * Solves Ax = b but A is is LU matrix P is pivoting array
+     * @param A
+     * @param P
+     * @param b
+     * @param x
+     */
+    public static void LUSolve(SquareMatrix LU, int[] P, Matrix b, Matrix x) {
+        int i,k;
+        for (i = 0; i < LU.m; i++) {
+            x.A[i][0] = b.A[P[i]][0];
+    
+            for (k = 0; k < i; k++)
+            x.A[i][0] -= LU.A[i][k] * x.A[k][0];
+        }
+    
+        for (i = LU.m - 1; i >= 0; i--) {
+            for (k = i + 1; k < LU.m; k++)
+            x.A[i][0] -= LU.A[i][k] * x.A[k][0];
+    
+            x.A[i][0] /= LU.A[i][i];
+        }
+    }
+
+    /**
+     * Invert Matrix using LU
+     * @return
+     * @throws MatrixException
+     */
+    public SquareMatrix LUInvert() throws MatrixException {
+        Object[] arr = this.PLUDecompose();
+        int[] P = (int[]) arr[0];
+        double[][] A = ((SquareMatrix) arr[1]).A;
+        double[][] IA = new double[this.m][this.m];
+        for (int j = 0; j < this.m; j++) {
+            for (int i = 0; i < this.m; i++) {
+                if (P[i] == j) 
+                    IA[i][j] = 1.0;
+    
+                for (int k = 0; k < i; k++)
+                    IA[i][j] -= A[i][k] * IA[k][j];
+            }
+    
+            for (int i = this.m - 1; i >= 0; i--) {
+                for (int k = i + 1; k < this.m; k++)
+                    IA[i][j] -= A[i][k] * IA[k][j];
+    
+                IA[i][j] = IA[i][j] / A[i][i];
+            }
+        }
+        return new SquareMatrix(IA);
+    }
+
+    /**
+     * Determine determinant using LU decomposition
+     * @return
+     * @throws MatrixException
+     */
+    public double LUPDeterminant() throws MatrixException {
+        Object[] arr = this.PLUDecompose();
+
+        int[] P = (int[]) arr[0];
+        double[][] A = ((SquareMatrix) arr[1]).A;
+
+        double det = A[0][0];
+        
+        for (int i = 1; i < this.m; i++)
+            det *= A[i][i];
+    
+        if ((P[this.m] - this.m) % 2 == 0)
+            return det; 
+        else
+            return -det;
+    }
+
+    public void invert() {
+        
+    }
+
+    /* STATIC METHODS */
+
+    /**
+     * Iterative Gauss - Seidel for solution
+     * @param A
+     * @param b
+     * @param tol
+     * @param x
+     * @return
+     */
     public static Matrix GaussSeidel(SquareMatrix A, Matrix b, double tol, Matrix x) {
         double err = tol*2;
         int iter = 1;
@@ -359,7 +413,16 @@ public class SquareMatrix extends Matrix {
         return x;
     }
 
-    public static Matrix SOR(SquareMatrix A, Matrix b, double tol, Matrix x, double relaxation) {
+    /**
+     * Successive Over Relaxation Solve
+     * @param A
+     * @param b
+     * @param tol
+     * @param relaxation
+     * @return
+     */
+    public static Matrix SOR(SquareMatrix A, Matrix b, double tol, double relaxation) {
+        double[] x = new double[b.m];
         double err = tol*2;
         int iter = 1;
         double w = 1-relaxation;
@@ -369,21 +432,30 @@ public class SquareMatrix extends Matrix {
                 double sum = b.A[i][0];
                 for(int j = 0; j < b.m; j++) {
                     if(j != i) {
-                        sum -= A.A[i][j]*x.A[j][0];
+                        sum -= A.A[i][j]*x[j];
                     }
                 }
-                double tmp = x.A[i][0];
-                x.A[i][0] = w*x.A[i][0] + relaxation*sum/A.A[i][i];
-                tmp -= x.A[i][0];
+                double tmp = x[i];
+                x[i] = w*x[i] + relaxation*sum/A.A[i][i];
+                tmp -= x[i];
                 err += tmp*tmp;
             }
             iter++;
         }
         System.out.println("Solution in " +iter);
-        return x;
+        return new Matrix(x,true);
     }
 
-    public static Matrix SOR(SquareMatrix A, Matrix b, double tol, Matrix x, double relaxationMin, double relaxationMax) {
+    /**
+     * Successive Over Relaxation method with a linear relaxation parameter
+     * @param A
+     * @param b
+     * @param tol
+     * @param x
+     * @param relaxationMin
+     * @param relaxationMax
+     */
+    public static void SOR(SquareMatrix A, Matrix b, double tol, Matrix x, double relaxationMin, double relaxationMax) {
         double err = tol*2;
         int iter = 1;
         double dw = (relaxationMax-relaxationMin)/100000;
@@ -406,6 +478,140 @@ public class SquareMatrix extends Matrix {
             iter++;
         }
         System.out.println("Solution in " +iter);
-        return x;
+    }
+
+    /**
+     * Conjugate Gradient Solve
+     * @param A
+     * @param b
+     * @param tol
+     * @param x
+     */
+    public static void CG(SquareMatrix A, Matrix b, double tol, Matrix x) {
+        Matrix r = b.sub(A.mult(x));
+
+        int i;
+        double err = 0;
+        for(i = 0; i < A.m;i++) {
+            err += r.A[i][0]*r.A[i][0];
+        }
+
+        Matrix r_next = new Matrix(r);
+        Matrix p = new Matrix(r);
+
+        int iter = 0;
+        
+        double alpha,beta;
+        while(err > tol && iter < 10000)  {
+            Matrix tmp = A.mult(p);
+
+            alpha = dot(r,r)/dot(p,tmp);
+            err = 0;
+            for(i = 0; i < A.m;i++){
+                x.A[i][0] += alpha*p.A[i][0];
+                r_next.A[i][0] = r.A[i][0] - alpha*tmp.A[i][0];
+                err += r_next.A[i][0]*r_next.A[i][0];
+            }
+
+            if(err < tol)
+                break;
+
+            beta = dot(r_next,r_next)/dot(r,r);
+            for(i = 0; i < A.m;i++){
+                p.A[i][0] = r_next.A[i][0]+beta*p.A[i][0];
+                r.A[i][0] = r_next.A[i][0];
+            }
+            iter++;
+        }
+        System.out.println("Solution in " +iter);
+    }
+
+    /**
+     * Invert using Strassen Algorithm
+     * @param A
+     * @return
+     */
+    public static SquareMatrix StrassenInvert(SquareMatrix A) {
+        return A;
+    }
+
+    /**
+     * Singular Value Decomposition
+     * @param A
+     * @return
+     */
+    public static Object[] SVD(SquareMatrix A) {
+        return null;
+    }    
+
+    public static Matrix powereig(SquareMatrix A, Matrix guess) {
+        for(int iter = 0; iter < 1000; iter++) {
+            Matrix b = A.mult(guess);
+            Matrix diff = b.sub(guess);
+
+            double err = 0;
+            double norm = 0 ;
+            for (int i = 0; i < A.m; i++) {
+                err += diff.A[i][0]*diff.A[i][0];
+                norm += b.A[i][0]*b.A[i][0];
+            }
+            norm = 1/Math.sqrt(norm);
+            guess.set(b.mult(norm));
+            if(err*norm < 1e-12) {
+                return b;
+            }
+        }
+        return null;
+    }
+
+    public static double rayleighQuotient(SquareMatrix A, Matrix b) {
+        double a = Matrix.dot(b,A.mult(b));
+        return a /= Matrix.dot(b,b);
+    }
+
+    public static double[] inveig(SquareMatrix A, double[] guess) {
+        SquareMatrix I = new SquareMatrix(A);
+        for(int i = 0; i < A.m;i++) {
+            
+        }
+        return guess;
+    }
+
+    
+
+    /**
+     * Givens Matrix for i and j where j > i
+     * @return
+     */
+    public static SquareMatrix GivensMatrix(int i, int j, double theta, int size) {
+        SquareMatrix I = new SquareMatrix(size,1);
+        I.A[i][i] = Math.cos(theta);
+        I.A[j][j] = I.A[i][i];
+        I.A[j][i] = Math.sin(theta);
+        I.A[i][j] = -I.A[j][i];
+        return null;
+    }
+
+    /**
+     * Cholesky Decomposition (use only for symmetric)
+     */
+    public static LowerTriangularMatrix chol(SquareMatrix A) {
+        LowerTriangularMatrix L = new LowerTriangularMatrix(A.m);
+        double sum;
+        for(int k = 0; k < A.m; k++) {
+            for(int i = 0; i < k; i++) {
+                sum = 0;
+                for(int j = 0; j < i; j++) {
+                    sum += L.A[i][j]*L.A[k][j];
+                }
+                L.A[k][i] = A.A[k][i] - sum/L.A[i][i];
+            }
+            sum = 0;
+            for(int j = 0; j < k; j++) {
+                sum += L.A[k][j]*L.A[k][j];
+            }
+            L.A[k][k] = Math.sqrt(A.A[k][k]-sum);
+        }
+        return L;
     }
 }

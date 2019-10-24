@@ -147,4 +147,24 @@ public final class MyMath {
         return x*(0.954929658551372 - 0.129006137732798*x*x);
     }
 
+    public static double[] Givins(double a, double b) {
+        double r = hypot(a,b);
+        return new double[]{a/r,-b/r,r};
+    }
+
+    public static double hypot(double a, double b) {
+        double x;
+        if (Math.abs(a) > Math.abs(b)) {
+            x = Math.abs(a);
+            b /= a;
+        } else {
+            x = Math.abs(b);
+            b = a/b;
+        }
+        if (x == 0) {
+            return x;
+        }
+        return x*Math.sqrt(1+b*b);
+    }
+
 }

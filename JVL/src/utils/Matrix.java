@@ -46,18 +46,22 @@ public class Matrix {
     }
 
     public Matrix(Matrix B) {
-        this.m = B.A.length;
-        this.n = B.A[0].length;
-        this.A = new double[m][n];
-        for(int i = 0; i < m;i++) {
-            System.arraycopy(B.A[i], 0, this.A[i], 0, n);
-        }
+        this.A = new double[B.m][B.n];
+        set(B);
     }
 
     public Matrix(int m, int n) {
         this.m = m;
         this.n = n;
         this.A = new double[m][n];
+    }
+
+    public void set(Matrix B) {
+        this.m = B.A.length;
+        this.n = B.A[0].length;
+        for(int i = 0; i < m;i++) {
+            System.arraycopy(B.A[i], 0, this.A[i], 0, n);
+        }
     }
 
     /**
@@ -206,4 +210,189 @@ public class Matrix {
     public double[][] data() {
         return A;
     }
+
+    /**
+     * Gram Schmidt orthogonalization
+     */
+    public static Matrix gramSchmidt(Matrix V) {
+        Matrix U = new Matrix(V);
+        double sum_den, sum_num;
+        for(int i = 0; i < V.n; i++) {
+
+            for(int j = 0; j < i; j++) {
+                sum_den = 0;
+                sum_num = 0;
+                for(int k = 0; k < U.m; j++) {
+                    sum_den += U.A[k][j]*U.A[k][j];
+                    sum_num += U.A[k][i]*U.A[k][j];
+                }
+                sum_num /= sum_den;
+                for(int k = 0; k < U.m; j++) {
+                    U.A[k][i] -= sum_num*U.A[k][j];
+                }
+            }
+
+            sum_den = 0;
+            for(int j = 0; j < U.m; j++) {
+                sum_den += U.A[j][i]*U.A[j][i];
+            }
+            sum_den = 1/Math.sqrt(sum_den);
+            for(int j = 0; j < U.m; j++) {
+                U.A[j][i] *= sum_den;
+            }
+        }
+        return U;
+    }
+
+    /**
+     * QR decomposition
+     * @return
+     */
+    public static Matrix[] GivensQR(Matrix A) {
+        double a,b;
+        SquareMatrix Q = new SquareMatrix(A.m,1);
+        Matrix R = new Matrix(A);
+        for (int j = 0; j < A.n; j++) {
+            for (int i = A.m; i > j; i--) {
+                double[] coef = MyMath.Givins(R.A[i-1][j],R.A[i][j]);
+                R.A[i-1][j] = coef[2]; 
+
+                for(int k = 0; k < A.m; k++){
+                    a = Q.A[k][i-1];
+                    b = Q.A[k][i];
+                    Q.A[k][i-1] = a*coef[0] + coef[1]*b; 
+                    Q.A[k][i] = coef[0]*b - coef[1]*a;  
+                }
+                
+                for(int k = j+1; k < A.n; k++) {
+                    a = R.A[i-1][k];
+                    b = R.A[i][k];
+                    R.A[i-1][k] = coef[0]*a + coef[1]*b; 
+                    R.A[i][k] = coef[0]*b - coef[1]*a; 
+                    
+                }
+            }
+        }
+        return new Matrix[]{Q,R};
+    }
+
+    /**
+     * QR decomposition
+     * @return
+     */
+    public static Matrix[] ParallelGivensQR(Matrix A) {
+        double a,b;
+        SquareMatrix Q = new SquareMatrix(A.m,1);
+        Matrix R = new Matrix(A);
+        for (int j = 0; j < A.n; j++) {
+            for (int i = A.m; i > j; i--) {
+                double[] coef = MyMath.Givins(R.A[i-1][j],R.A[i][j]);
+                R.A[i-1][j] = coef[2]; 
+
+                for(int k = 0; k < A.m; k++){
+                    a = Q.A[k][i-1];
+                    b = Q.A[k][i];
+                    Q.A[k][i-1] = a*coef[0] + coef[1]*b; 
+                    Q.A[k][i] = coef[0]*b - coef[1]*a;  
+                }
+                
+                for(int k = j+1; k < A.n; k++) {
+                    a = R.A[i-1][k];
+                    b = R.A[i][k];
+                    R.A[i-1][k] = coef[0]*a + coef[1]*b; 
+                    R.A[i][k] = coef[0]*b - coef[1]*a; 
+                    
+                }
+            }
+        }
+        return new Matrix[]{Q,R};
+    }
+
+    /**
+     * QR decomposition
+     * @return
+     */
+    public static Matrix[] HouseholderQR(Matrix A) {
+        SquareMatrix Q = new SquareMatrix(A.m,1);
+        Matrix R = new Matrix(A);
+        double sum, u1, tau;
+        double[] w = new double[A.m];
+        double[][] T;
+        for(int j = 0; j < A.n; j++) {
+            sum = 0;
+            for(int k = 0; k < A.m; k++){
+                sum += R.A[k][j]*R.A[k][j];
+            }
+            tau = Math.signum(R.A[j][j])/Math.sqrt(sum);
+            u1 = 1/(R.A[j][j] + 1/tau);
+            w[j] = 1;
+            for(int k = j+1; k < A.m;k++) {
+                w[k] = R.A[k][j]*u1;
+            }
+            tau /= u1;
+
+            T = new double[A.m-j][A.n];
+
+            for(int k = j; k < A.m; k++) {
+                for( int i = 0; i < A.n; i++) {
+                    double r_dot = 0;
+                    for (int t = j; t < A.m; t++){
+                        r_dot += R.A[t][i]*w[t];
+                    }
+                    T[k-j][i] = tau*w[k]*r_dot;
+                } 
+            }
+
+            for(int k = j; k < A.m; k++) {
+                for( int i = 0; i < A.n; i++) {
+                    R.A[k][i] -= T[k-j][i];
+                } 
+            }
+
+            T = new double[A.m][A.m-j];
+
+            for(int k = j; k < A.m; k++) {
+                for( int i = 0; i < A.n; i++) {
+                    double r_dot = 0;
+                    for (int t = j; t < A.m; t++){
+                        r_dot += Q.A[i][t]*w[t];
+                    }
+                    T[i][k-j] = tau*w[k]*r_dot;
+                } 
+            }
+
+            for(int k = j; k < A.m; k++) {
+                for( int i = 0; i < A.m; i++) {
+                    Q.A[i][k] -= T[i][k-j];
+                } 
+            }
+        }
+
+        return new Matrix[]{Q,R};
+    }
+
+    public static double dot(Matrix A, Matrix B) {
+        if(A.n == 1) {
+            if(B.m == A.m) {
+                double sum = 0;
+                for(int i = 0; i < A.m; i++) {
+                    sum += A.A[i][0]*B.A[i][0];
+                }
+                return sum;
+            } else {
+                return Double.NaN;
+            }
+        } else {
+            if(A.n == B.n) {
+                double sum = 0;
+                for(int i = 0; i < A.n; i++) {
+                    sum += A.A[0][i]*B.A[0][1];
+                }
+                return sum;
+            } else {
+                return Double.NaN;
+            }
+        }
+    }
+
 }
