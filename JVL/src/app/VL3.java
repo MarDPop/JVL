@@ -221,42 +221,57 @@ public class VL3 {
 
         // Solve
         try {
+            // Try LU factorization
             Object[] arr = AIC.PLUDecompose();
             SquareMatrix.LUSolve((SquareMatrix)arr[1],(int[]) arr[0],b,x);
             
         } catch (MatrixException e) {
+            // Use Successive Overrelaxation if Fails
             System.out.println(e.getMessage());
             SquareMatrix.SOR(AIC, b, 1e-8, x,0.001,0.5);
         }
 
+        // Set circulation solution to panels 
         for(int i = 0; i < panels.size(); i++) {
             panels.get(i).setCirculation(x.get(i,0));
         }
 
+        // Init total forces/moments
         totalForce = new Cartesian();
         totalMoment = new Cartesian();
 
+        // Compute forces and moments from panels
         for(int i = 0; i< n;i++){
+            // Get panel considered
             Panel p_i = panels.get(i);
             Cartesian center = p_i.getCenter();
+            // Vector for local induced velocity at center
             Cartesian local_induced = new Cartesian();
             for(int j = 0; j < n; j++){
+                // panel j
                 Panel p_j = panels.get(j);
+                // Get induced velocity and multiply by circulation strength
                 local_induced.addTo(p_j.getInducedVelocityFactorAtPoint(center).multBy(p_j.getCirculation()));
             }
+            // Add to freestream velocity to get flow at center (would not necessarily be tangent)
             Cartesian local_velocity = freestream.add(local_induced);
+            // Force computation is v x omega
             Cartesian local_force = local_velocity.cross(p_i.getVortexVector()).multBy(density*p_i.getCirculation());
+            // Set force for panel
             p_i.setForce(local_force);
+            // Sum across all panels
             totalForce.addTo(local_force);
+            // Moment is moment arm x force
             totalMoment.addTo(local_force.cross(p_i.getCenter().sub(reference)));
         }
 
+        // Compute Lift and Drag vectors from total force
         double LIFT = (-totalForce.x*freestream.z+totalForce.z*freestream.x)/airspeed;
         double DRAG = (totalForce.x*freestream.x+totalForce.z*freestream.z)/airspeed;
 
         System.out.println("Lift = " + LIFT + "N");
         System.out.println("Induced Drag = " + DRAG + "N");
-        System.out.println("Pitching Moment = " + totalMoment.y);
+        System.out.println("Pitching Moment = " + totalMoment.y + "N-m");
     }
 
     /* Getters and Setters */
@@ -266,6 +281,14 @@ public class VL3 {
 
     public void setReferencePoint(Cartesian point) {
         this.reference = point;
+    }
+
+    public Cartesian getForces() {
+        return totalForce;
+    }
+
+    public Cartesian getMoments() {
+        return totalMoment;
     }
 
 }

@@ -1,6 +1,7 @@
 package geometry;
 
 import utils.Cartesian;
+import java.util.ArrayList;
 
 public class Surface {
 
@@ -18,8 +19,33 @@ public class Surface {
 
     Cartesian upperBounds = new Cartesian();
 
+
+    public static final int AILERON = 1;
+
+    public static final int ELEVATOR = 2;
+
+    public static final int RUDDER = 3;
+
+    public static final int FLAP = 4;
+
+    public static final int SPOILER = 5;
+
+    // Control Surface array = 0: type 1: iStart 2:iEnd 3:jStart 4:jEnd 5: rotation in deg
+    ArrayList<int[]> controlSurface = new ArrayList<>();
+
     public Surface() {}
 
+    /**
+     * Load flat plate
+     * @param origin
+     * @param root_chord
+     * @param span
+     * @param nChord
+     * @param nSpan
+     * @param angle
+     * @param taper
+     * @param sweep
+     */
     public Surface(Cartesian origin, double root_chord, double span,int nChord, int nSpan, double angle, double taper, double sweep) {
 
         if(nChord < 0 || nSpan < 0 ) {
@@ -76,8 +102,115 @@ public class Surface {
     
     }
 
-    public Surface(Cartesian LE1, Curve chord1, Cartesian LE2, Curve chord2, int nSpan) {
+    /**
+     * Load Surface from Tip and Root airfoils
+     * @param LE1
+     * @param root
+     * @param LE2
+     * @param tip
+     * @param root_chord
+     * @param tip_chord
+     * @param root_twist
+     * @param tip_twist
+     * @param nSpan
+     * @param nChord
+     */
+    public Surface(Cartesian LE1, Airfoil root, Cartesian LE2, Airfoil tip, double root_chord, double tip_chord, double root_twist, double tip_twist, int nSpan, int nChord) {
+        
+        if(root.chamber.size() == tip.chamber.size()) {
+            int n = root.chamber.size();
+            if(n == nChord+1) {
+                // init panels
+                this.nChord = root.chamber.size();
+                this.nSpan = nSpan;
 
+                panels = new Panel[nSpan][nChord];
+
+                // Get leading edge
+                Cartesian LE = LE2.sub(LE1);
+                double dy = LE.y/nSpan;
+
+                // rotate and scale airfoil
+                
+                double[] x_root = new double[n];
+                double[] z_root = new double[n];
+                double[] x_tip = new double[n];
+                double[] z_tip = new double[n];
+                double c_root = Math.cos(root_twist);
+                double s_root = Math.sin(root_twist);
+                double c_tip = Math.cos(tip_twist);
+                double s_tip = Math.sin(tip_twist);
+                for (int i = 0; i < n; i++) {
+                    double x = root_chord*i/nChord;
+                    z_root[i] = root_chord*root.chamber.get(i);
+                    x_root[i] = c_root*x - s_root*z_root[i];
+                    z_root[i] = s_root*x + c_root*z_root[i];
+
+                    x = tip_chord*i/nChord;
+                    z_tip[i] = tip_chord*tip.chamber.get(i);
+                    x_tip[i] = c_tip*x - s_tip*z_tip[i];
+                    z_tip[i] = s_tip*x + c_tip*z_tip[i];
+                }
+
+                for(int i = 0; i < nSpan; i++) {
+                    int i_outboard = i+1;
+                    
+                    double le_y_inboard = LE1.y + i*dy;
+                    double le_y_outboard = LE1.y + i_outboard*dy;
+
+                    for(int j = 0; j < nChord; j++) {
+                        int j_te = j+1;
+                        panels[i][j] = new Panel();
+                        double dz_le = (z_tip[j]-z_root[j])/nSpan;
+                        double dz_te = (z_tip[j_te]-z_root[j_te])/nSpan;
+                        double dx_le = (x_tip[j]-x_root[j])/nSpan;
+                        double dx_te = (x_tip[j_te]-x_root[j_te])/nSpan;
+                        Cartesian x1y1 = new Cartesian(x_root[j] + i*dx_le, le_y_inboard, z_root[j]+i*dz_le);
+                        Cartesian x2y1 = new Cartesian(x_root[j_te] + i*dx_te, le_y_inboard, z_root[j_te] + i*dz_te);
+                        Cartesian x2y2 = new Cartesian(x_root[j_te] + i_outboard*dx_te, le_y_outboard, z_root[j_te] + i_outboard*dz_te);
+                        Cartesian x1y2 = new Cartesian(x_root[j] +i_outboard*dx_le, le_y_outboard, z_root[j] + i_outboard*dz_le);
+                        panels[i][j].setVertices(x1y1, x2y1, x2y2, x1y2);
+                    }
+                }
+            } else {
+                
+            }
+        }
+    }
+
+    /**
+     * Add control surface and deflect
+     * @param type
+     * @param controlYStart
+     * @param controlYEnd
+     * @param chordFraction
+     * @param deflection
+     */
+    public void addControlSurface(int type, double controlYStart, double controlYEnd, double chordFraction, int deflection) {
+        double dy = panels[0][0].vertices[0].y-panels[1][0].vertices[0].y;
+        int[] control = new int[6];
+        control[0] = type;
+        control[1] = (int)Math.round(controlYStart/dy);
+        control[2] = (int)Math.round(controlYEnd/dy);
+        if(control[2] >= nSpan) {
+            control[2] = nSpan-1;
+        }
+        control[3] = (int)((1-chordFraction)*nChord-1);
+        if (control[3] < 0) {
+            control[3] = 0;
+        }
+        control[4] = nChord-1;
+        control[5] = deflection; // deflection (deg)
+        controlSurface.add(control);
+    }
+    
+    /**
+     * Set deflection of contro
+     * @param i
+     * @param deflection
+     */
+    public void deflectControl(int i, int deflection) {
+        controlSurface.get(i)[5] = deflection;
     }
 
     public Panel[][] getPanels() {

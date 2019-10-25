@@ -69,12 +69,22 @@ public class App {
     }
 
     private static void setupSim() {
+        /*
         sim.surfaces.add(new Surface(new Cartesian(1,0,0),0.5,1,8,8,5*MyMath.DEG2RAD,0,0));
         sim.surfaces.add(new Surface(new Cartesian(1,0,0),0.5,-1,8,8,-5*MyMath.DEG2RAD,0,0));
+        */
 
+        Airfoil NACA2402 = new Airfoil("2402",10);
+
+        Cartesian root = new Cartesian(0,0,0);
+        Cartesian tip = new Cartesian(0,1,0);
+        Cartesian tip2 = new Cartesian(0,-1,0);
+        sim.surfaces.add(new Surface(root,NACA2402,tip,NACA2402,0.5,0.5,-5*MyMath.DEG2RAD,0,6,10));
+        sim.surfaces.add(new Surface(root,NACA2402,tip2,NACA2402,0.5,0.5,-5*MyMath.DEG2RAD,0,6,10));
+
+        // Horizontal Tail
         sim.surfaces.add(new Surface(new Cartesian(2.5,-0.5,0),0.25,1,4,6,0,0,0));
-        //sim.surfaces.add(new Surface(new Cartesian(2.5,0,0),0.25,0.5,4,6,0,0,0));
-
+        // Vertical Tail
         sim.surfaces.add(new Surface(new Cartesian(2.5,0,0),0.25,0.5,4,3,Math.PI/2,10*MyMath.DEG2RAD,5*MyMath.DEG2RAD));
 
         vp.setSurfaces(sim.surfaces);
