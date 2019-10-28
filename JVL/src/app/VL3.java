@@ -124,6 +124,16 @@ public class VL3 {
     private Cartesian reference = new Cartesian();
 
     /**
+     *  All coefficients (force, moments, stability) 
+     */
+    private double[][] coefficents = new double[7][3]; // CFx, CFy, CFz; CMx, CMy, CMz; CMy_alpha, CMz_beta
+
+    /**
+     * 0 = dForce/dAlpha 1 = dMoment/dAlpha 2= dForce/dBeta 3 = dMoment/dBeta 4 = dForce/dAirspeed 5 = dMoment/dAirspeed
+     */
+    private Cartesian[] derivatives = new Cartesian[6];
+
+    /**
      * Empty Constructor
      */
     public VL3() {}
@@ -145,24 +155,31 @@ public class VL3 {
      * @param temperature
      */
     public void setFreestream(double airspeed, double alpha, double beta, double staticPressure, double temperature) {
+        // setup free stream vector from angle of attack and side slip
         freestream.x = airspeed*Math.cos(alpha)*Math.cos(beta);
-        freestream.y = -airspeed*Math.sin(beta);
+        freestream.y = airspeed*Math.sin(beta);
         freestream.z = airspeed*Math.sin(alpha)*Math.cos(beta);
         freestream.r = airspeed;
 
+        // Definition of Free Stream Vector stored
         this.airspeed = airspeed;
         this.alpha = alpha;
         this.beta = beta;
 
+        // Freestream Air State
         this.staticPressure = staticPressure;
-        this.density = staticPressure/(AIR_R*temperature);
         this.temperature = temperature;
+        this.density = staticPressure/(AIR_R*temperature);
 
+        // Speed of sound
         this.a0 = Math.sqrt(CONST_R*temperature);
 
+        // Mach Number and Constants associated
         this.Mach = airspeed/a0;
         this.M2 = Mach*Mach;
         this.MachConstant = 1-M2;
+
+        // Reynolds number factor
         this.RE = density*airspeed/calcDynamicViscosity(temperature);
     }
 
@@ -272,6 +289,81 @@ public class VL3 {
         System.out.println("Lift = " + LIFT + "N");
         System.out.println("Induced Drag = " + DRAG + "N");
         System.out.println("Pitching Moment = " + totalMoment.y + "N-m");
+    }
+
+    public void run(double refArea, double refLength) {
+        // Calculate initial condition
+        calc();
+        // Save Forces and Momoments
+        Cartesian NomForces = new Cartesian(totalForce);
+        Cartesian NomMoments = new Cartesian(totalMoment);
+
+        // Temp Force and Moment variables
+        Cartesian F, M;
+
+        // Discrete velocity changes
+        double dAlpha = 0.01;
+        double dBeta = 0.01;
+        double dAirspeed = 1;
+
+        // Alpha
+        freestream.x = airspeed*Math.cos(alpha-dAlpha)*Math.cos(beta);
+        freestream.y = airspeed*Math.sin(beta);
+        freestream.z = airspeed*Math.sin(alpha-dAlpha)*Math.cos(beta);
+
+        calc();
+        F = new Cartesian(totalForce);
+        M = new Cartesian(totalMoment);
+
+        freestream.x = airspeed*Math.cos(alpha+dAlpha)*Math.cos(beta);
+        freestream.y = airspeed*Math.sin(beta);
+        freestream.z = airspeed*Math.sin(alpha+dAlpha)*Math.cos(beta);
+        calc();
+
+        this.derivatives[0] = totalForce.sub(F).mult(1/dAlpha);
+        this.derivatives[1]  = totalMoment.sub(M).mult(1/dAlpha);
+
+        // Beta
+        freestream.x = airspeed*Math.cos(dAlpha)*Math.cos(beta-dBeta);
+        freestream.y = airspeed*Math.sin(beta-dBeta);
+        freestream.z = airspeed*Math.sin(dAlpha)*Math.cos(beta-dBeta);
+
+        calc();
+        F = new Cartesian(totalForce);
+        M = new Cartesian(totalMoment);
+
+        freestream.x = airspeed*Math.cos(alpha+dAlpha)*Math.cos(beta+dBeta);
+        freestream.y = airspeed*Math.sin(beta+dBeta);
+        freestream.z = airspeed*Math.sin(alpha+dAlpha)*Math.cos(beta+dBeta);
+        calc();
+        
+        this.derivatives[2] = totalForce.sub(F).mult(1/dBeta);
+        this.derivatives[3]  = totalMoment.sub(M).mult(1/dBeta);
+
+        // Airspeed
+        freestream.x = (airspeed-dAirspeed)*Math.cos(alpha)*Math.cos(beta);
+        freestream.y = (airspeed-dAirspeed)*Math.sin(beta);
+        freestream.z = (airspeed-dAirspeed)*Math.sin(alpha)*Math.cos(beta);
+
+        calc();
+        F = new Cartesian(totalForce);
+        M = new Cartesian(totalMoment);
+
+        freestream.x = (airspeed+dAirspeed)*Math.cos(alpha)*Math.cos(beta);
+        freestream.y = (airspeed+dAirspeed)*Math.sin(beta);
+        freestream.z = (airspeed+dAirspeed)*Math.sin(alpha)*Math.cos(beta);
+        calc();
+        
+        this.derivatives[4] = totalForce.sub(F).mult(1/dBeta);
+        this.derivatives[5]  = totalMoment.sub(M).mult(1/dBeta);
+
+        // Constant for Coefficients
+        double constant4Force = this.getQ()*refArea;
+        double constant4Moment = constant4Force*refLength;
+        
+
+        this.totalForce = NomForces;
+        this.totalMoment = NomMoments;
     }
 
     /* Getters and Setters */
