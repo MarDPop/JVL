@@ -2,6 +2,7 @@ package geometry;
 
 import utils.Cartesian;
 import utils.CartesianMatrix;
+import utils.MyMath;
 
 import java.util.ArrayList;
 
@@ -296,21 +297,25 @@ public class Surface {
      * @param deflection
      */
     public void addControlSurface(int type, double controlYStart, double controlYEnd, double chordFraction, int deflection) {
-        double dy = panels[0][0].vertices[0].y-panels[1][0].vertices[0].y;
+        // since constant dy in surface
+        double dy = panels[0][0].vertices[2].y-panels[0][0].vertices[0].y;
+        double starty = panels[0][0].vertices[0].y+dy/2;
         int[] control = new int[6];
+        double test = (controlYStart-starty)/dy;
         control[0] = type;
-        control[1] = (int)Math.round(controlYStart/dy);
-        control[2] = (int)Math.round(controlYEnd/dy);
+        control[1] = (int)Math.round((controlYStart-starty)/dy);
+        control[2] = (int)Math.round((controlYEnd-starty)/dy);
         if(control[2] >= nSpan) {
             control[2] = nSpan-1;
         }
-        control[3] = (int)((1-chordFraction)*nChord-1);
+        control[3] = (int)Math.round((1.0-chordFraction)*nChord);
         if (control[3] < 0) {
             control[3] = 0;
         }
         control[4] = nChord-1;
-        control[5] = deflection; // deflection (deg)
+        // control[5] = deflection;
         controlSurface.add(control);
+        deflectControl(controlSurface.size()-1, deflection);
     }
     
     /**
@@ -319,7 +324,26 @@ public class Surface {
      * @param deflection
      */
     public void deflectControl(int i, int deflection) {
-        controlSurface.get(i)[5] = deflection;
+        int[] ids = controlSurface.get(i);
+        ids[5] = deflection;
+        Cartesian LE1 = panels[ids[1]][ids[3]].vertices[0];
+        Cartesian LE2 = panels[ids[2]][ids[3]].vertices[0];
+        Cartesian axis = LE2.sub(LE1);
+        axis.normalize();
+        CartesianMatrix M = CartesianMatrix.axisAngle(axis, deflection*MyMath.DEG2RAD);
+
+        for(int j = ids[1]; j <= ids[2]; j++) {
+            for(int k = ids[3]; k <= ids[4]; k++) {
+                Cartesian[] v = new Cartesian[4];
+                Panel p = panels[j][k];
+                for(int l = 0; l < 4; l++) {
+                    Cartesian r = p.vertices[l].sub(LE1);
+                    Cartesian r1 = M.mult(r);
+                    v[l] = LE1.add(r1);
+                }
+                p.setVertices(v[0], v[3], v[2], v[1]);
+            }
+        }
     }
 
     public Panel[][] getPanels() {

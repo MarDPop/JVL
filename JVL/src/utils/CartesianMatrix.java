@@ -48,6 +48,29 @@ package utils;
         return out;
     }
 
+    /**
+     * 
+     * @param axis unit vector
+     * @param angle
+     * @return
+     */
+    public static CartesianMatrix axisAngle(Cartesian axis, double angle) {
+        CartesianMatrix out = new CartesianMatrix();
+        double c = Math.cos(angle);
+        double s = Math.sin(angle);
+        double c1 = 1-c;
+        out.A[0][0] = c+axis.x*axis.x*c1;
+        out.A[0][1] = axis.x*axis.y*c1 - axis.z*s;
+        out.A[0][2] = axis.x*axis.z*c1 + axis.y*s;
+        out.A[1][0] = axis.y*axis.x*c1 + axis.z*s;
+        out.A[1][1] = c+axis.y*axis.y*c1;
+        out.A[1][2] = axis.y*axis.z*c1 - axis.x*s;
+        out.A[2][0] = axis.z*axis.x*c1 - axis.y*s;
+        out.A[2][1] = axis.z*axis.y*c1 + axis.x*s;
+        out.A[2][2] = c+axis.z*axis.z*c1;
+        return out;
+    }
+
     public static CartesianMatrix getXYRotation(double yaw, double pitch) {
         CartesianMatrix out = new CartesianMatrix();
         double c1 = Math.cos(yaw);

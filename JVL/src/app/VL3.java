@@ -109,6 +109,11 @@ public class VL3 {
     private Matrix b;
 
     /**
+     * Vector of solution (Circulation Strengths)
+     */
+    private Matrix x;
+
+    /**
      * total force on vehicle
      */
     private Cartesian totalForce;
@@ -134,9 +139,26 @@ public class VL3 {
     private Cartesian[] derivatives = new Cartesian[6];
 
     /**
+     * Vehicle lift
+     */
+    private double LIFT;
+
+    /**
+     * Vehicle Drag
+     */
+    private double DRAG;
+
+    /**
+     * number of panels
+     */
+    int n;
+
+    /**
      * Empty Constructor
      */
-    public VL3() {}
+    public VL3() {
+        n = 0;
+    }
 
     /**
      * Sets the surfaces
@@ -186,25 +208,24 @@ public class VL3 {
     /**
      * Dynamic viscosity based on temperature curve fit
      * @param temperature
-     * @return
+     * @return dynamic viscosity (Pa s)
      */
     private double calcDynamicViscosity(double temperature) {
-        return temperature*(0.07549-4.643e-5*temperature);
+        return temperature*(0.07549-4.643e-5*temperature)*1e-6;
     }
 
     /**
      * Gets dynamic pressure of freestream
-     * @return
+     * @return dynamic pressure in Pa
      */
     public double getQ() {
         return 0.7*this.staticPressure*this.M2;
     }
 
     /**
-     * Calculation. 
-     * Summary: Collects all the panels
+     * 
      */
-    public void calc() {
+    private void initCalc() {
         // Collect Panels
         for(Surface s : surfaces) {
             for(Panel[] ps: s.getPanels()) {
@@ -213,13 +234,26 @@ public class VL3 {
         }
 
         // Init Variables for Calculation
-        int n = panels.size();
+        n = panels.size();
+        // Aerodynamic Influence Coefficent Matrix
         AIC = new SquareMatrix(n);
+        // Solution Variable (flow to cancel out)
         b = new Matrix(n,1);
+        // Induced velocity vector
         w = new Cartesian[panels.size()][panels.size()];
+        // Solution Variable
+        x = new Matrix(n,1);
+    }
+
+    /**
+     * Calculation. 
+     */
+    public void calc() {
+        if ( n == 0 )
+            initCalc();
 
         for(int i = 0; i < n;i++) {
-            // Panel being considered and some repeated vectors
+            // Panel being considered and some useful repeated vectors
             Panel p_i  = panels.get(i);
             Cartesian r_i = p_i.getCollocationPoint();
             Cartesian n_i = p_i.getNormal();
@@ -233,15 +267,12 @@ public class VL3 {
             b.set(i,0,-freestream.dot(n_i));
         }
 
-        // Solution Variable
-        Matrix x = new Matrix(n,1);
-
         // Solve
         try {
             // Try LU factorization
             Object[] arr = AIC.PLUDecompose();
             SquareMatrix.LUSolve((SquareMatrix)arr[1],(int[]) arr[0],b,x);
-            
+            System.out.println("solution found LU");
         } catch (MatrixException e) {
             // Use Successive Overrelaxation if Fails
             System.out.println(e.getMessage());
@@ -283,12 +314,41 @@ public class VL3 {
         }
 
         // Compute Lift and Drag vectors from total force
-        double LIFT = (-totalForce.x*freestream.z+totalForce.z*freestream.x)/airspeed;
-        double DRAG = (totalForce.x*freestream.x+totalForce.z*freestream.z)/airspeed;
+        LIFT = (-totalForce.x*freestream.z+totalForce.z*freestream.x)/airspeed;
+        DRAG = (totalForce.x*freestream.x+totalForce.z*freestream.z)/airspeed;
+    }
 
-        System.out.println("Lift = " + LIFT + "N");
-        System.out.println("Induced Drag = " + DRAG + "N");
-        System.out.println("Pitching Moment = " + totalMoment.y + "N-m");
+    /**
+     * Calculates approximate skin drag from panels and a reynolds number function
+     * @return
+     */
+    public double calcApproxSkinDrag() {
+        // Skin Friction coefficient, reynolds number
+        double Cf, reynolds;
+        // Dynamic Pressure (use a factor of 2 for top and bottom surface)
+        double q = 2*this.getQ();
+        // Drag
+        double drag = 0;
+        for(Surface s : surfaces) {
+            for(Panel[] ps: s.getPanels()) {
+                // Leading edge x used to calculate distance for reynolds number
+                double LE_x = ps[0].vertices[0].x;
+                for (Panel p : ps) {
+                    // reynolds number approx
+                    reynolds = this.RE*(p.getCenter().x-LE_x);
+                    if (reynolds < 3000) {
+                        // Blasius
+                        Cf = 0.664/Math.sqrt(reynolds);
+                    } else {
+                        // Prandtl
+                        Cf = 0.027/Math.pow(reynolds,0.145);
+                    }
+                    // sum drag
+                    drag += Cf*q*p.getArea();
+                }
+            }
+        }
+        return drag;
     }
 
     public void run(double refArea, double refLength) {
@@ -297,6 +357,8 @@ public class VL3 {
         // Save Forces and Momoments
         Cartesian NomForces = new Cartesian(totalForce);
         Cartesian NomMoments = new Cartesian(totalMoment);
+        double L = LIFT;
+        double D = DRAG;
 
         // Temp Force and Moment variables
         Cartesian F, M;
@@ -320,8 +382,8 @@ public class VL3 {
         freestream.z = airspeed*Math.sin(alpha+dAlpha)*Math.cos(beta);
         calc();
 
-        this.derivatives[0] = totalForce.sub(F).mult(1/dAlpha);
-        this.derivatives[1]  = totalMoment.sub(M).mult(1/dAlpha);
+        this.derivatives[0] = totalForce.sub(F).mult(0.5/dAlpha);
+        this.derivatives[1]  = totalMoment.sub(M).mult(0.5/dAlpha);
 
         // Beta
         freestream.x = airspeed*Math.cos(dAlpha)*Math.cos(beta-dBeta);
@@ -337,8 +399,8 @@ public class VL3 {
         freestream.z = airspeed*Math.sin(alpha+dAlpha)*Math.cos(beta+dBeta);
         calc();
         
-        this.derivatives[2] = totalForce.sub(F).mult(1/dBeta);
-        this.derivatives[3]  = totalMoment.sub(M).mult(1/dBeta);
+        this.derivatives[2] = totalForce.sub(F).mult(0.5/dBeta);
+        this.derivatives[3]  = totalMoment.sub(M).mult(0.5/dBeta);
 
         // Airspeed
         freestream.x = (airspeed-dAirspeed)*Math.cos(alpha)*Math.cos(beta);
@@ -354,17 +416,31 @@ public class VL3 {
         freestream.z = (airspeed+dAirspeed)*Math.sin(alpha)*Math.cos(beta);
         calc();
         
-        this.derivatives[4] = totalForce.sub(F).mult(1/dBeta);
-        this.derivatives[5]  = totalMoment.sub(M).mult(1/dBeta);
+        this.derivatives[4] = totalForce.sub(F).mult(0.5/dBeta);
+        this.derivatives[5]  = totalMoment.sub(M).mult(0.5/dBeta);
 
         // Constant for Coefficients
         double constant4Force = this.getQ()*refArea;
         double constant4Moment = constant4Force*refLength;
         
-
+        // Reset to base
         this.totalForce = NomForces;
         this.totalMoment = NomMoments;
+        this.LIFT = L;
+        this.DRAG = D;
+
+        // Approximate skin drag
+        double drag = calcApproxSkinDrag();
+
+        // Print out
+        System.out.println("Lift = " + LIFT + "N");
+        System.out.println("Induced Drag = " + DRAG + "N");
+        System.out.println("Skin Drag = " + drag +"N");
+        System.out.println("Pitching Moment = " + NomMoments.y +"N-m");
+        System.out.println("Cm_alpha = " + derivatives[1].y +"N-m/rad");
     }
+
+
 
     /* Getters and Setters */
     public Cartesian getFreestream() {
@@ -373,6 +449,10 @@ public class VL3 {
 
     public void setReferencePoint(Cartesian point) {
         this.reference = point;
+    }
+
+    public Cartesian getReferencePoint() {
+        return this.reference;
     }
 
     public Cartesian getForces() {

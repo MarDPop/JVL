@@ -48,7 +48,7 @@ public class App {
 
         gui.setVisible(true);
 
-        sim.calc();
+        sim.run(1,0.5);
 
         vp.getResult = true;
 
@@ -83,13 +83,16 @@ public class App {
         sim.surfaces.add(new Surface(root,NACA2402,tip2,NACA2402,0.5,0.5,-5*MyMath.DEG2RAD,0,6,10));
 
         // Horizontal Tail
-        sim.surfaces.add(new Surface(new Cartesian(2.5,-0.5,0),0.25,1,4,6,0,0,0));
+         Surface HStab = new Surface(new Cartesian(2.5,-0.5,0),0.25,1,4,6,0,0,0);
+         HStab.addControlSurface(Surface.ELEVATOR, -0.4, 0.4, 0.3, 10);
+         sim.surfaces.add(HStab);
+        // sim.surfaces.add(new Surface(new Cartesian(2.5,-0.5,0),0.25,1,4,6,0,0,0));
         // Vertical Tail
         sim.surfaces.add(new Surface(new Cartesian(2.5,0,0),0.25,0.5,4,3,Math.PI/2,10*MyMath.DEG2RAD,5*MyMath.DEG2RAD));
 
         vp.setSurfaces(sim.surfaces);
 
-        sim.setFreestream(50, 0.01, 0, 101325, 298);
+        sim.setFreestream(50, 0.0, 0, 101325, 298);
 
         vp.setFreeStream(sim.getFreestream(),0.01);
         
