@@ -3,6 +3,8 @@ package app;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionListener;
+import java.io.File;
+import java.io.IOException;
 import java.awt.event.ActionEvent;
 
 import geometry.*;
@@ -10,6 +12,8 @@ import utils.Cartesian;
 import utils.MyMath;
 
 public class App {
+    public static final String VERSION_NO = "0.1.0";
+
     static JFrame gui;
 
     static VortexLatticeSteady sim = new VortexLatticeSteady();
@@ -42,11 +46,26 @@ public class App {
         simMenu.add(new JMenuItem("Run"));
         simMenu.add(new JMenuItem("Options"));
         JMenu help = new JMenu("Help");
-        help.addActionListener(new ActionListener() {
+        JMenuItem about = new JMenuItem("About");
+        about.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
-                JOptionPane.showMessageDialog(gui, "<html>Test</html>");
+                JOptionPane.showMessageDialog(null, "<html><p>JVL Version " + VERSION_NO + "</p><p>Author: Marius Popescu </p></html>", "About", JOptionPane.INFORMATION_MESSAGE);
             }
         });
+        JMenuItem readMe = new JMenuItem("Read Me");
+        readMe.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                File file = new File("README.html");
+                try {
+                    Desktop.getDesktop().open(file);
+                } catch (IOException ex) {
+                    ex.printStackTrace();
+                }
+            }
+        });
+        help.add(about);
+        help.add(readMe);
+
         bar.add(fileMenu);
         bar.add(geometryMenu);
         bar.add(simMenu);
@@ -60,7 +79,7 @@ public class App {
 
         sim.run();
 
-        sim.printResults(1,0.5,"results.dat");
+        sim.printResults(1,0.5,"results_"+System.currentTimeMillis()+".dat");
 
         vp.getResult = true;
 
@@ -91,7 +110,7 @@ public class App {
 
         vp.setSurfaces(sim.surfaces);
 
-        sim.setFreestream(50, 0.0, 0, 101325, 298);
+        sim.setFreestream(50, 0.01, 0, 101325, 298);
 
         sim.setReferencePoint(new Cartesian(0.5,0,0));
 

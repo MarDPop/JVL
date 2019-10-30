@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.io.*;
 import geometry.*;
+import utils.MyMath;
 
 public class ImportExport {
 
@@ -111,7 +112,31 @@ public class ImportExport {
             BufferedWriter bufferedWriter =
                 new BufferedWriter(fileWriter);
 
-            bufferedWriter.write("Coefficients from Run performed at "+ new Date().toString() );
+            bufferedWriter.write("----------------------------------------------------------------------------------------");
+            bufferedWriter.newLine();
+            bufferedWriter.write("COEFFICIENTS");
+            bufferedWriter.newLine();
+            bufferedWriter.write("Version: " + app.App.VERSION_NO );
+            bufferedWriter.newLine();
+            bufferedWriter.write("Date: "+ new Date().toString() );
+            bufferedWriter.newLine();
+            bufferedWriter.write("Airspeed (m/s):" + references[0] );
+            bufferedWriter.newLine();
+            bufferedWriter.write("Angle of Attack (deg): " + references[1]*MyMath.RAD2DEG );
+            bufferedWriter.newLine();
+            bufferedWriter.write("Sideslip (deg): "+ references[2]*MyMath.RAD2DEG);
+            bufferedWriter.newLine();
+            bufferedWriter.write("Mach: " + references[3]);
+            bufferedWriter.newLine();
+            bufferedWriter.write("Pressure (Pa): " + references[4]);
+            bufferedWriter.newLine();
+            bufferedWriter.write("Reference Area (m^2): " + references[5]);
+            bufferedWriter.newLine();
+            bufferedWriter.write("Reference Length (m): " + references[6]);
+            bufferedWriter.newLine();
+            bufferedWriter.write("Reference Location (m): " + references[7] + " , " + references[8] + " , " + references[9] );
+            bufferedWriter.newLine();
+            bufferedWriter.write("----------------------------------------------------------------------------------------");
             bufferedWriter.newLine();
 
             for(int i = 0; i < coefficients.length;i++) {

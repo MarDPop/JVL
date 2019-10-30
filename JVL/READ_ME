@@ -1,0 +1,55 @@
+///////////////////////////////////////////////////////////////////////////////
+//                         JVL (Java Vortex Lattice)                         //
+//                              Lockheed Martin                              //
+///////////////////////////////////////////////////////////////////////////////
+
+Description: A Java based vortex lattice code. Vortex Lattice is a potential 
+flow based approach that is useful to quickly generate aerodynamic character-
+istics of a vehicle. Particularly useful to extend into unsteady effects for
+aeroelastic behavior.
+
+Authors: 
+-Marius Popescu (Primary)
+
+Point of Contact: 
+- Marius Popescu (marius.popescu@lmco.com)
+
+Features
+- Thin Surfaces
+- Control Surfaces
+- Forces and Moments
+- Stability Derivates
+- Control Derivates
+
+Planned Features
+- 3d Surfaces 
+- Trimming Tool
+- Compressiblity
+- Unsteady aerodynamic
+- Structural Statics
+- Structural Dynamics
+- Aeroelasticity
+
+Version History:
+- 0.1.0 [10/30/2019] : Basic panel method developed 
+
+///////////////////////////////////////////////////////////////////////////////
+
+Table of Contents
+
+1. Introduction
+2. Basic Fundamentals
+3. Installation
+4. Setup Case
+    4.1 Initial Conditions (Freestream)
+    4.2 Surfaces
+    4.3 Controls
+    4.4 Saving and Importing
+5. Run Case
+    5.1 Options
+    5.2 Output
+6. FAQ
+
+///////////////////////////////////////////////////////////////////////////////
+
+1. Introduction
