@@ -1,6 +1,7 @@
 package files;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.io.*;
 import geometry.*;
 
@@ -95,6 +96,36 @@ public class ImportExport {
             // Always close files.
             bufferedWriter.close();
         }
+        catch(IOException ex) {
+            ex.printStackTrace();
+        }
+    }
+
+    public static void writeCoefficients(double[] coefficients, String[] names, double[] references, String filename) {
+        try {
+            // Assume default encoding.
+            FileWriter fileWriter =
+                new FileWriter(filename);
+
+            // Always wrap FileWriter in BufferedWriter.
+            BufferedWriter bufferedWriter =
+                new BufferedWriter(fileWriter);
+
+            bufferedWriter.write("Coefficients from Run performed at "+ new Date().toString() );
+            bufferedWriter.newLine();
+
+            for(int i = 0; i < coefficients.length;i++) {
+                if ( i < names.length) {
+                    bufferedWriter.write(names[i] + " = ");
+                } else {
+                    bufferedWriter.write("? = ");
+                }
+                bufferedWriter.write("" + coefficients[i]);
+                bufferedWriter.newLine();
+            }
+
+            bufferedWriter.close();
+        } 
         catch(IOException ex) {
             ex.printStackTrace();
         }

@@ -2,17 +2,17 @@ package app;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.ActionListener;
+import java.awt.event.ActionEvent;
+
 import geometry.*;
 import utils.Cartesian;
 import utils.MyMath;
-import utils.SquareMatrix;
-import utils.Matrix;
-import utils.MatrixException;
 
 public class App {
     static JFrame gui;
 
-    static VL3 sim = new VL3();
+    static VortexLatticeSteady sim = new VortexLatticeSteady();
 
     static ViewingPane vp = new ViewingPane();
 
@@ -37,9 +37,19 @@ public class App {
         geometryMenu.add(new JMenuItem("Import"));
         geometryMenu.add(new JMenuItem("Add"));
         geometryMenu.add(new JMenuItem("Edit"));
+        JMenu simMenu = new JMenu("Simulation");
+        simMenu.add(new JMenuItem("Setup"));
+        simMenu.add(new JMenuItem("Run"));
+        simMenu.add(new JMenuItem("Options"));
         JMenu help = new JMenu("Help");
+        help.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                JOptionPane.showMessageDialog(gui, "<html>Test</html>");
+            }
+        });
         bar.add(fileMenu);
         bar.add(geometryMenu);
+        bar.add(simMenu);
         bar.add(help);
 
         gui.getContentPane().add(BorderLayout.NORTH, bar);
@@ -48,24 +58,13 @@ public class App {
 
         gui.setVisible(true);
 
-        sim.run(1,0.5);
+        sim.run();
+
+        sim.printResults(1,0.5,"results.dat");
 
         vp.getResult = true;
 
         gui.repaint();
-    }
-
-    private static void plotTest() {
-        int divisions = 100;
-        Airfoil f = new Airfoil("23012",divisions);
-        java.util.ArrayList<Double> x = new java.util.ArrayList<>();
-        for(int i = 0; i <= divisions; i++) {
-            x.add(i*1.0/divisions);
-        }
-        java.util.HashMap<String,Object> o = new java.util.HashMap<>();
-        o.put("Title","Airfoil 23012");
-        JPlot plot = new JPlot(x,f.getChamber(),o);
-
     }
 
     private static void setupSim() {
@@ -94,9 +93,27 @@ public class App {
 
         sim.setFreestream(50, 0.0, 0, 101325, 298);
 
+        sim.setReferencePoint(new Cartesian(0.5,0,0));
+
         vp.setFreeStream(sim.getFreestream(),0.01);
         
     }
+
+    /*
+
+    private static void plotTest() {
+        int divisions = 100;
+        Airfoil f = new Airfoil("23012",divisions);
+        java.util.ArrayList<Double> x = new java.util.ArrayList<>();
+        for(int i = 0; i <= divisions; i++) {
+            x.add(i*1.0/divisions);
+        }
+        java.util.HashMap<String,Object> o = new java.util.HashMap<>();
+        o.put("Title","Airfoil 23012");
+        JPlot plot = new JPlot(x,f.getChamber(),o);
+
+    }
+
 
     private static void performanceTest() {
         long startTime , finishTime;
@@ -169,5 +186,6 @@ public class App {
         System.out.println(x.get(0,0)+" "+x.get(1,0)+" "+x.get(2,0)+" "+x.get(3,0));
 
     }
+    */
     
 }
