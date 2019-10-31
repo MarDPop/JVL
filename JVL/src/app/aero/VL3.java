@@ -1,4 +1,4 @@
-package app;
+package app.aero;
 
 import utils.*;
 
@@ -7,21 +7,15 @@ import geometry.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 
-import files.ImportExport;
-
 
 /**
  * Vortex Lattice method, use http://www.cta-dlr2009.ita.br/Proceedings/PDF/59306.pdf for reference
  */
-public class VortexLatticeSteady {
+public class VL3 {
 
     public static double GAS_R = 8.31445; // J/ mol k
 
     public static double AIR_R = 287.1012; // J/ kg K
-
-    private static double CONST_R = 401.9416; // J/ kg K
-
-    // private static double DYNAMIC_VISCOSITY_300 = 18.45e-6; //Pa s
 
     /**
      * Free stream vector (m/s)
@@ -59,24 +53,9 @@ public class VortexLatticeSteady {
     private double temperature;
 
     /**
-     * Freestream Speed of sound (m/s)
-     */
-    private double a0;
-
-    /**
-     * Freestream mach
-     */
-    private double Mach;
-
-    /**
      * Mach squared
      */
     private double M2;
-
-    /**
-     * Compressible Constant Beta 
-     */
-    private double MachConstant;
 
     /**
      * Freestream Reynolds Number factor (rho u/ mu) 1 / m
@@ -129,9 +108,14 @@ public class VortexLatticeSteady {
     private Cartesian reference = new Cartesian();
 
     /**
-     * 0 = dForce/dAlpha 1 = dMoment/dAlpha 2= dForce/dBeta 3 = dMoment/dBeta 4 = dForce/du 5 = dMoment/du 6 = dForce/dAirspeed 7 = dMoment/dAirspeed
+     *  All coefficients (force, moments, stability) 
      */
-    private Cartesian[] derivatives = new Cartesian[8];
+    private double[] coefficents;
+
+    /**
+     * 0 = dForce/dAlpha 1 = dMoment/dAlpha 2= dForce/dBeta 3 = dMoment/dBeta 4 = dForce/dAirspeed 5 = dMoment/dAirspeed
+     */
+    private Cartesian[] derivatives = new Cartesian[6];
 
     /**
      * Vehicle lift
@@ -156,7 +140,7 @@ public class VortexLatticeSteady {
     /**
      * Empty Constructor
      */
-    public VortexLatticeSteady() {
+    public VL3() {
         n = 0;
     }
 
@@ -192,14 +176,6 @@ public class VortexLatticeSteady {
         this.staticPressure = staticPressure;
         this.temperature = temperature;
         this.density = staticPressure/(AIR_R*this.temperature);
-
-        // Speed of sound
-        this.a0 = Math.sqrt(CONST_R*temperature);
-
-        // Mach Number and Constants associated
-        this.Mach = airspeed/a0;
-        this.M2 = Mach*Mach;
-        this.MachConstant = 1-M2;
 
         // Reynolds number factor
         this.RE = density*airspeed/calcDynamicViscosity(temperature);
@@ -260,7 +236,7 @@ public class VortexLatticeSteady {
             Cartesian n_i = p_i.getNormal();
             for(int j = 0; j < n; j++) {
                 // Get the contribution of panel j vortex on panel i
-                w[i][j] = panels.get(j).getInducedVelocityFactorAtPoint(r_i);
+                w[i][j] = panels.get(j).getInducedVelocityFactorAtPointIncompressible(r_i);
                 // get the only the normal component of contribution
                 AIC.set(i,j,w[i][j].dot(n_i));
             }
@@ -299,7 +275,7 @@ public class VortexLatticeSteady {
                 // panel j
                 Panel p_j = panels.get(j);
                 // Get induced velocity and multiply by circulation strength
-                local_induced.addTo(p_j.getInducedVelocityFactorAtPoint(center).multBy(p_j.getCirculation()));
+                local_induced.addTo(p_j.getInducedVelocityFactorAtPointIncompressible(center).multBy(p_j.getCirculation()));
             }
             // Add to freestream velocity to get flow at center (would not necessarily be tangent)
             Cartesian local_velocity = freestream.add(local_induced);
@@ -357,7 +333,7 @@ public class VortexLatticeSteady {
      * @param refArea
      * @param refLength
      */
-    public void run() {
+    public void run(double refArea, double refLength) {
         // Calculate initial condition
         calc();
         // Save Forces and Momoments
@@ -408,31 +384,12 @@ public class VortexLatticeSteady {
         this.derivatives[2] = totalForce.sub(F).mult(0.5/dBeta);
         this.derivatives[3]  = totalMoment.sub(M).mult(0.5/dBeta);
 
-        // Acceleration in X axis
-        freestream.x = (airspeed-dAirspeed)*Math.cos(alpha)*Math.cos(beta);
-        freestream.y = airspeed*Math.sin(beta);
-        freestream.z = airspeed*Math.sin(alpha)*Math.cos(beta);
-
-        calc();
-
-        F = new Cartesian(totalForce);
-        M = new Cartesian(totalMoment);
-
-        freestream.x = (airspeed+dAirspeed)*Math.cos(alpha)*Math.cos(beta);
-        freestream.y = airspeed*Math.sin(beta);
-        freestream.z = airspeed*Math.sin(alpha)*Math.cos(beta);
-        calc();
-        
-        this.derivatives[4] = totalForce.sub(F).mult(0.5/dAirspeed);
-        this.derivatives[5]  = totalMoment.sub(M).mult(0.5/dAirspeed);
-
         // Airspeed
         freestream.x = (airspeed-dAirspeed)*Math.cos(alpha)*Math.cos(beta);
         freestream.y = (airspeed-dAirspeed)*Math.sin(beta);
         freestream.z = (airspeed-dAirspeed)*Math.sin(alpha)*Math.cos(beta);
 
         calc();
-
         F = new Cartesian(totalForce);
         M = new Cartesian(totalMoment);
 
@@ -441,10 +398,12 @@ public class VortexLatticeSteady {
         freestream.z = (airspeed+dAirspeed)*Math.sin(alpha)*Math.cos(beta);
         calc();
         
-        this.derivatives[6] = totalForce.sub(F).mult(0.5/dAirspeed);
-        this.derivatives[7]  = totalMoment.sub(M).mult(0.5/dAirspeed);
+        this.derivatives[4] = totalForce.sub(F).mult(0.5/dBeta);
+        this.derivatives[5]  = totalMoment.sub(M).mult(0.5/dBeta);
 
-        // Note: typically speed derivatives are in component direction but airspeed derivative has merit for wind change
+        // Constant for Coefficients
+        double constant4Force = this.getQ()*refArea;
+        double constant4Moment = constant4Force*refLength;
         
         // Reset to base
         this.totalForce = NomForces;
@@ -453,46 +412,36 @@ public class VortexLatticeSteady {
         this.VehicleInducedDrag = D;
 
         // Approximate skin drag
-        calcApproxSkinDrag(); 
-        // NOTE: just assume that skin drag scales with velocity squared for dCD/du (ie 2*u*drag_skin/v)
+        calcApproxSkinDrag();
+
+        // Print out
+        printResults(constant4Force,constant4Moment);
     }
 
     /**
      * Prints results 
      */
-    public void printResults(double refArea, double refLength, String filename) {
-        double refForce = this.getQ()*refArea;
-        double refMoment = refForce*refLength;
-
-        // Print a few to screen
+    public void printResults(double refForce, double refMoment) {
         System.out.println("Lift = " + VehicleLift + "N");
         System.out.println("Induced Drag = " + VehicleInducedDrag + "N");
         System.out.println("Total Drag = " + VehicleDrag +"N");
         System.out.println("Pitching Moment = " + totalMoment.y +"N-m");
         System.out.println("Cm_alpha = " + derivatives[1].y +"N-m/rad");
-
-        // Print all to file
-        // Collect Coeffients
         String[] coefNames= new String[6];
-        double[] coefficients = new double[6];
+        coefficents = new double[6];
         coefNames[0] = "C_L (Lift)";
-        coefficients[0] = VehicleLift/refForce;
+        coefficents[0] = VehicleLift/refForce;
         coefNames[1] = "C_D (Drag)";
-        coefficients[1] = VehicleDrag/refForce;
+        coefficents[1] = VehicleDrag/refForce;
         coefNames[2] = "C_M (Pitching Moment)";
-        coefficients[2] = totalMoment.y/refMoment;
+        coefficents[2] = totalMoment.y/refMoment;
         coefNames[3] = "C_M_alpha (Pitching Moment)";
-        coefficients[3] = derivatives[1].y/refMoment;
+        coefficents[3] = derivatives[1].y/refMoment;
         coefNames[4] = "C_N (Yaw Moment)";
-        coefficients[4] = totalMoment.z/refMoment;
+        coefficents[4] = totalMoment.z/refMoment;
         coefNames[5] = "C_L (Roll Moment)";
-        coefficients[5] = totalMoment.x/refMoment;
-
-        // Other variables
-        double[] references = new double[]{airspeed, alpha, beta, Mach, staticPressure, refArea, refLength, reference.x,reference.y,reference.z};
+        coefficents[5] = totalMoment.x/refMoment;
         
-        // Print
-        ImportExport.writeCoefficients(coefficients, coefNames, references, filename);
     }
 
     /* Getters and Setters */

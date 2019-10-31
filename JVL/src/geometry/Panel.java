@@ -47,6 +47,21 @@ public class Panel {
     private Cartesian normal; 
 
     /**
+     * velocity tangent to panel
+     */
+    private Cartesian tangentMach;
+
+    /**
+     * Normal for compressible flow
+     */
+    private Cartesian compressibleNormal;
+
+    /**
+     * local beta 
+     */
+    private Cartesian localCompressibleScaling = new Cartesian(1,1,1);;
+
+    /**
      * Circulation Strength
      */
     private double lambda;
@@ -122,7 +137,13 @@ public class Panel {
         this.r0 = B.sub(A);
     }
 
-    public Cartesian getInducedVelocityFactorAtPoint(Cartesian point) {
+    /**
+     * Gets the induced velocity vector using Biot-Savart law at a given point 
+     * @param point
+     * @param beta
+     * @return
+     */
+    public Cartesian getInducedVelocityFactorAtPointIncompressible(Cartesian point) {
 
         // Distance to point from Point A (r1) and Point B (r2)
         Cartesian r1 = point.sub(this.A);
@@ -158,6 +179,75 @@ public class Panel {
         } 
 
         return VAB.addTo(VA).addTo(VB).multBy(FOUR_PI_INV);
+    }
+
+    /**
+     * adds compressiblity effects
+     * @param freestream
+     * @param speedofsound
+     */
+    public void addCompressiblity(Cartesian freestream, double speedofsound) {
+        this.compressibleNormal = new Cartesian(normal);
+        Cartesian edge1 = vertices[3].sub(this.vertices[0]); // x axis "inboard" edge
+        Cartesian edge2 = vertices[1].sub(this.vertices[0]);
+        for (int i = 0; i < 5; i++){
+            tangentMach = freestream.sub(this.compressibleNormal.mult(freestream.dot(this.compressibleNormal)));
+            tangentMach.multBy(1/speedofsound);
+            localCompressibleScaling.x = 1/(1-tangentMach.x*tangentMach.x);
+            localCompressibleScaling.y = 1/(1-tangentMach.y*tangentMach.y);
+            localCompressibleScaling.z = 1/(1-tangentMach.z*tangentMach.z);
+
+            this.compressibleNormal = edge1.scale(localCompressibleScaling).cross(edge2.scale(localCompressibleScaling));
+            this.compressibleNormal.normalize();
+        }
+
+    }
+
+        /**
+     * Gets the induced velocity vector using Biot-Savart law at a given point and mach factor (1-Mach^2)
+     * @param point
+     * @param beta
+     * @return
+     */
+    public Cartesian getInducedVelocityFactorAtPointCompressible(Cartesian point, Cartesian Scaling) {
+
+        // Distance to point from Point A (r1) and Point B (r2)
+        Cartesian r1 = point.sub(this.A);
+        Cartesian r2 = point.sub(this.B);
+
+        r1.scaleBy(localCompressibleScaling);
+        r2.scaleBy(localCompressibleScaling);
+
+        // get norm
+        Cartesian r1_normalized = r1.mult(1/r1.getMagnitude());
+        Cartesian r2_normalized = r2.mult(1/r2.getMagnitude());
+
+        // Contribution from Vortex A-B (transverse segment)
+        Cartesian VAB = r1.cross(r2); // temporary storage
+        double m = VAB.x*VAB.x+VAB.y*VAB.y+VAB.z*VAB.z;
+        if (m < 1e-15){
+            VAB.multBy(0.0);
+        } else {
+            VAB.multBy(r0.dot(r1_normalized.sub(r2_normalized))/m);
+        }
+        // Contribution from Infinite Vortex Segment A
+        Cartesian VA = new Cartesian(0,r1.z,-r1.y);
+        m = VA.y*VA.y+VA.z*VA.z;
+        if (m < 1e-15){
+            VA.multBy(0);
+        } else {
+            VA.multBy((1+r1_normalized.x)/m);
+        }
+        // Contribution from Infinite Vortex Segment B
+        Cartesian VB = new Cartesian(0,r2.z,-r2.y); 
+        m = VB.y*VB.y+VB.z*VB.z;
+        if (m < 1e-15){
+            VB.multBy(0);
+        } else {
+            VB.multBy(-(1+r2_normalized.x)/m); // this is inverted from paper (check ) I think this is correct because the B segment vortex vector points away thus dot product is inverted (cross product remains same)
+        } 
+
+        return VAB.addTo(VA).addTo(VB).multBy(FOUR_PI_INV).scaleBy(localCompressibleScaling);
     }
 
     /* Getters and Setters */
@@ -219,6 +309,11 @@ public class Panel {
     public Cartesian getNormal() {
         return this.normal;
     }
+    
+    public Cartesian getCompressibleNormal() {
+        return this.compressibleNormal;
+    }
+
     public void setCirculation(double l) {
         this.lambda = l;
     }

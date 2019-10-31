@@ -78,6 +78,26 @@ public class Cartesian {
         return a.x*this.x+a.y*this.y+a.z*this.z;
     }
 
+    /**
+     * element multiply
+     * @param a
+     * @return
+     */
+    public Cartesian scale(Cartesian a) {
+        Cartesian out = new Cartesian();
+        out.x = this.x*a.x;
+        out.y = this.y*a.y;
+        out.z = this.z*a.z;
+        return out;
+    }
+
+    public Cartesian scaleBy(Cartesian a) {
+        this.x*=a.x;
+        this.y*=a.y;
+        this.z*=a.z;
+        return this;
+    }
+
     public Cartesian add(Cartesian a) {
         return new Cartesian(this.x+a.x,this.y+a.y,this.z+a.z);
     }

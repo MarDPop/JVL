@@ -1,4 +1,4 @@
-package app;
+package app.aero;
 
 import utils.*;
 
@@ -7,7 +7,7 @@ import geometry.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 
-public class VL {
+public class VL2 {
 
     public static double GAS_R = 8.31445;
 
@@ -60,7 +60,7 @@ public class VL {
 
     private Cartesian reference;
 
-    public VL() {}
+    public VL2() {}
 
     public void setSurfaces(ArrayList<Surface> s) {
         this.surfaces = s;
@@ -113,43 +113,29 @@ public class VL {
         for(int i = 0; i < panels.size();i++) {
             Panel p_i  = panels.get(i);
             Cartesian r_i = p_i.getCollocationPoint();
-            double tmp;
             for(int j = 0; j < panels.size(); j++) {
                 Panel p_j  = panels.get(j);
 
                 Cartesian r1 = p_j.getA().sub(r_i);
                 Cartesian r2 = p_j.getB().sub(r_i);
 
-                Cartesian VAB = r1.cross(r2);
-                VAB.normalize();
-                double omega = p_j.getVortexVector().dot(r1)/r1.getMagnitude() - p_j.getVortexVector().dot(r2)/r2.getMagnitude();
-                VAB.multBy(omega);
+                Cartesian v = p_j.getVortexVector();
 
-                Cartesian VA = new Cartesian();
-                VA.y = -r1.z;
-                VA.z = r1.y;
-                tmp = r1.z*r1.z+r1.y*r1.y;
-                tmp = (1 + r1.x/Math.sqrt(r1.x*r1.x + tmp))/tmp; 
-                VA.multBy(tmp);
+                double A_bound = ((v.x*r1.x+v.y*r1.y)/r1.getMagnitude() - (v.x*r2.x+v.y*r2.y)/r2.getMagnitude()) /(r1.x*r2.y-r2.x*r1.y);
+                double A_left = (1+r1.x/r1.r)/r1.y;
+                double A_right = (1+r2.x/r2.r)/r2.y;
 
-                Cartesian VB = new Cartesian();
-                VB.y = r2.z;
-                VB.z = -r2.y;
-                tmp = r2.z*r2.z+r2.y*r2.y;
-                tmp = (1 + r2.x/Math.sqrt(r2.x*r2.x + tmp))/tmp; 
-                VB.multBy(tmp);
-
-                w[i][j] = VAB.add(VA).add(VB);
-                w[i][j].multBy(fourpi);
-
-                AIC.set(i,j,w[i][j].dot(p_i.getNormal()));
+                AIC.set(i,j,fourpi*(A_bound-A_left+A_right));
             }
             b.set(i,0,-freestream.dot(p_i.getNormal()));
         }
 
+        
         Matrix x = new Matrix(panels.size(),1);
 
-        SquareMatrix.GaussSeidel(AIC, b, 1e-6, x);
+        SquareMatrix.SOR(AIC, b, 1e-8, x,0.02,0.5);
+        
+        //Matrix x = AIC.inv().mult(b);
 
         induced = AIC.mult(x);
 
@@ -157,19 +143,27 @@ public class VL {
         double DRAG = 0;
         Cartesian MOMENT = new Cartesian();
         
+        double rho = density*airspeed;
         for(int i = 0; i < panels.size(); i++) {
             Panel p_i = panels.get(i);
             // Cartesian v = new Cartesian(freestream);
-            p_i.setCirculation(b.get(i,0));
-            double rho = density*b.get(i,0);
-            double lift = rho*airspeed*Math.abs(p_i.vertices[2].y-p_i.vertices[0].y);
-            LIFT += lift;
-            double drag = rho*induced.get(i,0)/airspeed;
-            Cartesian d = freestream.mult(drag);
+            p_i.setCirculation(x.get(i,0));
+            double circ = rho*x.get(i,0);
+            double lift = circ*(p_i.vertices[2].y-p_i.vertices[0].y);
+
+            // Check this
+            if(p_i.getNormal().z < 0) {
+                LIFT += lift;
+            } else {
+                LIFT -= lift;
+            }
+
+            double drag = circ*induced.get(i,0)*p_i.getNormal().z/airspeed;
+            Cartesian d = freestream.mult(drag/airspeed);
             DRAG += drag;
             Cartesian l = p_i.getVortexVector().cross(freestream);
             l.normalize().multBy(lift);
-            Cartesian f = new Cartesian(d.x+l.x,d.y+l.x,d.z+l.x);
+            Cartesian f = new Cartesian(d.x+l.x,d.y+l.y,d.z+l.z);
             panels.get(i).setForce(f);
         }
         System.out.println("Lift = " + LIFT);

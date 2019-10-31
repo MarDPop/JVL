@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.awt.event.ActionEvent;
 
 import geometry.*;
+import app.aero.VortexLatticeSteady;
 import utils.Cartesian;
 import utils.MyMath;
 
@@ -110,11 +111,11 @@ public class App {
 
         vp.setSurfaces(sim.surfaces);
 
-        sim.setFreestream(50, 0.01, 0, 101325, 298);
+        sim.setFreestream(200, 0.01, 0, 101325, 298);
 
         sim.setReferencePoint(new Cartesian(0.5,0,0));
 
-        vp.setFreeStream(sim.getFreestream(),0.01);
+        vp.setFreeStream(sim.getFreestream(),1/sim.getLift());
         
     }
 

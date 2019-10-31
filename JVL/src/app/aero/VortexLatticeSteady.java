@@ -1,21 +1,29 @@
-package app;
+package app.aero;
 
 import utils.*;
-
+import app.Options;
 import geometry.*;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 
+import files.ImportExport;
+
 
 /**
  * Vortex Lattice method, use http://www.cta-dlr2009.ita.br/Proceedings/PDF/59306.pdf for reference
  */
-public class VL3 {
+public class VortexLatticeSteady {
 
     public static double GAS_R = 8.31445; // J/ mol k
 
     public static double AIR_R = 287.1012; // J/ kg K
+
+    private static double CONST_R = 401.9416; // J/ kg K
+
+    // private static double DYNAMIC_VISCOSITY_300 = 18.45e-6; //Pa s
+
+    public Options options = new Options();
 
     /**
      * Free stream vector (m/s)
@@ -50,12 +58,32 @@ public class VL3 {
     /**
      * Freestream temperature (K)
      */
-    private double temperature;
+    private double staticTemperature;
+
+    /**
+     * Freestream Speed of sound (m/s)
+     */
+    private double a0;
+
+    /**
+     * Freestream mach
+     */
+    private double Mach;
 
     /**
      * Mach squared
      */
     private double M2;
+
+    /**
+     * Compressible Constant Beta 
+     */
+    private double MachConstant;
+
+    /**
+     * Potential Flow Scaling factors
+     */
+    private Cartesian compressibleScaling;
 
     /**
      * Freestream Reynolds Number factor (rho u/ mu) 1 / m
@@ -108,14 +136,9 @@ public class VL3 {
     private Cartesian reference = new Cartesian();
 
     /**
-     *  All coefficients (force, moments, stability) 
+     * 0 = dForce/dAlpha 1 = dMoment/dAlpha 2= dForce/dBeta 3 = dMoment/dBeta 4 = dForce/du 5 = dMoment/du 6 = dForce/dAirspeed 7 = dMoment/dAirspeed
      */
-    private double[] coefficents;
-
-    /**
-     * 0 = dForce/dAlpha 1 = dMoment/dAlpha 2= dForce/dBeta 3 = dMoment/dBeta 4 = dForce/dAirspeed 5 = dMoment/dAirspeed
-     */
-    private Cartesian[] derivatives = new Cartesian[6];
+    private Cartesian[] derivatives = new Cartesian[8];
 
     /**
      * Vehicle lift
@@ -140,7 +163,7 @@ public class VL3 {
     /**
      * Empty Constructor
      */
-    public VL3() {
+    public VortexLatticeSteady() {
         n = 0;
     }
 
@@ -174,8 +197,16 @@ public class VL3 {
 
         // Freestream Air State
         this.staticPressure = staticPressure;
-        this.temperature = temperature;
-        this.density = staticPressure/(AIR_R*this.temperature);
+        this.staticTemperature = temperature;
+        this.density = staticPressure/(AIR_R*this.staticTemperature);
+
+        // Speed of sound
+        this.a0 = Math.sqrt(CONST_R*temperature);
+
+        // Mach Number and Constants associated
+        this.Mach = airspeed/a0;
+        this.M2 = Mach*Mach;
+        this.MachConstant = Math.sqrt(1-M2);
 
         // Reynolds number factor
         this.RE = density*airspeed/calcDynamicViscosity(temperature);
@@ -199,7 +230,31 @@ public class VL3 {
     }
 
     /**
-     * 
+     * Gets compressible density ratio
+     * @return
+     */
+    public double getCompressibleDensityRatio(double Mach) {
+        double Beta = 1-0.8*Mach*Mach;
+        return Beta*Beta*Math.sqrt(Beta);
+    }
+
+    /**
+     * Calculation. 
+     */
+    public void calc(boolean compressibility) {
+        if ( n == 0 )
+            initCalc();
+
+        if (compressibility) {
+            calcCompressible();
+        } else {
+            calcIncompressible();
+        }
+        getForcesAndMoments();
+    }
+
+    /**
+     * Initializes variables for calculation
      */
     private void initCalc() {
         // Collect Panels
@@ -222,12 +277,57 @@ public class VL3 {
     }
 
     /**
-     * Calculation. 
+     * 
      */
-    public void calc() {
-        if ( n == 0 )
-            initCalc();
+    private void calcCompressible() {
+        calcIncompressible();
+        compressibleScaling = new Cartesian();
+        
+        // Solve
+        try {
+            // Try LU factorization
+            int count = 0;
+            double err = 1;
+            while (err > 1e-3 && count < 10){
+                computeAICCompressible();
+                Object[] arr = AIC.PLUDecompose();
+                SquareMatrix.LUSolve((SquareMatrix)arr[1],(int[]) arr[0],b,x);
+                
+            }
+        } catch (MatrixException e) {
+            // Use Successive Overrelaxation if Fails
+            System.out.println(e.getMessage());
+            computeAICCompressible();
+            SquareMatrix.SOR(AIC, b, 1e-8, x,0.001,0.5);
+        }
+    }
 
+    private void computeAICCompressible() {
+        // Define AIC and velocity to cancel out
+        for(int i = 0; i < n;i++) {
+            // Panel being considered and some useful repeated vectors
+            Panel p_i  = panels.get(i);
+            Cartesian r_i = p_i.getCollocationPoint();
+            Cartesian n_i = p_i.getCompressibleNormal();
+            for(int j = 0; j < n; j++) {
+                // Get the contribution of panel j vortex on panel i
+                w[i][j] = panels.get(j).getInducedVelocityFactorAtPointCompressible(r_i,compressibleScaling);
+                // get the only the normal component of contribution
+                AIC.set(i,j,w[i][j].dot(n_i));
+            }
+            // set the sum of contributions to negate the freestream component normal to panel
+            b.set(i,0,-freestream.dot(n_i));
+        }
+        // Set circulation solution to panels 
+        for(int i = 0; i < panels.size(); i++) {
+            panels.get(i).setCirculation(x.get(i,0));
+        }
+    }
+
+     /**
+     * 
+     */
+    private void calcIncompressible() {
         // Define AIC and velocity to cancel out
         for(int i = 0; i < n;i++) {
             // Panel being considered and some useful repeated vectors
@@ -236,7 +336,7 @@ public class VL3 {
             Cartesian n_i = p_i.getNormal();
             for(int j = 0; j < n; j++) {
                 // Get the contribution of panel j vortex on panel i
-                w[i][j] = panels.get(j).getInducedVelocityFactorAtPoint(r_i);
+                w[i][j] = panels.get(j).getInducedVelocityFactorAtPointIncompressible(r_i);
                 // get the only the normal component of contribution
                 AIC.set(i,j,w[i][j].dot(n_i));
             }
@@ -259,11 +359,19 @@ public class VL3 {
         for(int i = 0; i < panels.size(); i++) {
             panels.get(i).setCirculation(x.get(i,0));
         }
+    }
+
+    /**
+     * 
+     */
+    private void getForcesAndMoments() {
 
         // Init total forces/moments
         totalForce = new Cartesian();
         totalMoment = new Cartesian();
 
+        double scale = 1/MachConstant;
+        
         // Compute forces and moments from panels
         for(int i = 0; i< n;i++){
             // Get panel considered
@@ -275,12 +383,20 @@ public class VL3 {
                 // panel j
                 Panel p_j = panels.get(j);
                 // Get induced velocity and multiply by circulation strength
-                local_induced.addTo(p_j.getInducedVelocityFactorAtPoint(center).multBy(p_j.getCirculation()));
+                if (options.compressible) {
+
+                } else {
+                    local_induced.addTo(p_j.getInducedVelocityFactorAtPointIncompressible(center).multBy(p_j.getCirculation()));
+                }
+                
             }
             // Add to freestream velocity to get flow at center (would not necessarily be tangent)
             Cartesian local_velocity = freestream.add(local_induced);
             // Force computation is v x omega
             Cartesian local_force = local_velocity.cross(p_i.getVortexVector()).multBy(density*p_i.getCirculation());
+            if(!options.compressible && options.scaleCompressible) {
+                local_force.multBy(scale);
+            }
             // Set force for panel
             p_i.setForce(local_force);
             // Sum across all panels
@@ -333,9 +449,9 @@ public class VL3 {
      * @param refArea
      * @param refLength
      */
-    public void run(double refArea, double refLength) {
+    public void run() {
         // Calculate initial condition
-        calc();
+        calc(options.compressible);
         // Save Forces and Momoments
         Cartesian NomForces = new Cartesian(totalForce);
         Cartesian NomMoments = new Cartesian(totalMoment);
@@ -355,14 +471,14 @@ public class VL3 {
         freestream.y = airspeed*Math.sin(beta);
         freestream.z = airspeed*Math.sin(alpha-dAlpha)*Math.cos(beta);
 
-        calc();
+        calc(options.compressible);
         F = new Cartesian(totalForce);
         M = new Cartesian(totalMoment);
 
         freestream.x = airspeed*Math.cos(alpha+dAlpha)*Math.cos(beta);
         freestream.y = airspeed*Math.sin(beta);
         freestream.z = airspeed*Math.sin(alpha+dAlpha)*Math.cos(beta);
-        calc();
+        calc(options.compressible);
 
         this.derivatives[0] = totalForce.sub(F).mult(0.5/dAlpha);
         this.derivatives[1]  = totalMoment.sub(M).mult(0.5/dAlpha);
@@ -372,38 +488,55 @@ public class VL3 {
         freestream.y = airspeed*Math.sin(beta-dBeta);
         freestream.z = airspeed*Math.sin(dAlpha)*Math.cos(beta-dBeta);
 
-        calc();
+        calc(options.compressible);
         F = new Cartesian(totalForce);
         M = new Cartesian(totalMoment);
 
         freestream.x = airspeed*Math.cos(alpha+dAlpha)*Math.cos(beta+dBeta);
         freestream.y = airspeed*Math.sin(beta+dBeta);
         freestream.z = airspeed*Math.sin(alpha+dAlpha)*Math.cos(beta+dBeta);
-        calc();
+        calc(options.compressible);
         
         this.derivatives[2] = totalForce.sub(F).mult(0.5/dBeta);
         this.derivatives[3]  = totalMoment.sub(M).mult(0.5/dBeta);
+
+        // Acceleration in X axis
+        freestream.x = (airspeed-dAirspeed)*Math.cos(alpha)*Math.cos(beta);
+        freestream.y = airspeed*Math.sin(beta);
+        freestream.z = airspeed*Math.sin(alpha)*Math.cos(beta);
+
+        calc(options.compressible);
+
+        F = new Cartesian(totalForce);
+        M = new Cartesian(totalMoment);
+
+        freestream.x = (airspeed+dAirspeed)*Math.cos(alpha)*Math.cos(beta);
+        freestream.y = airspeed*Math.sin(beta);
+        freestream.z = airspeed*Math.sin(alpha)*Math.cos(beta);
+        calc(options.compressible);
+        
+        this.derivatives[4] = totalForce.sub(F).mult(0.5/dAirspeed);
+        this.derivatives[5]  = totalMoment.sub(M).mult(0.5/dAirspeed);
 
         // Airspeed
         freestream.x = (airspeed-dAirspeed)*Math.cos(alpha)*Math.cos(beta);
         freestream.y = (airspeed-dAirspeed)*Math.sin(beta);
         freestream.z = (airspeed-dAirspeed)*Math.sin(alpha)*Math.cos(beta);
 
-        calc();
+        calc(options.compressible);
+
         F = new Cartesian(totalForce);
         M = new Cartesian(totalMoment);
 
         freestream.x = (airspeed+dAirspeed)*Math.cos(alpha)*Math.cos(beta);
         freestream.y = (airspeed+dAirspeed)*Math.sin(beta);
         freestream.z = (airspeed+dAirspeed)*Math.sin(alpha)*Math.cos(beta);
-        calc();
+        calc(options.compressible);
         
-        this.derivatives[4] = totalForce.sub(F).mult(0.5/dBeta);
-        this.derivatives[5]  = totalMoment.sub(M).mult(0.5/dBeta);
+        this.derivatives[6] = totalForce.sub(F).mult(0.5/dAirspeed);
+        this.derivatives[7]  = totalMoment.sub(M).mult(0.5/dAirspeed);
 
-        // Constant for Coefficients
-        double constant4Force = this.getQ()*refArea;
-        double constant4Moment = constant4Force*refLength;
+        // Note: typically speed derivatives are in component direction but airspeed derivative has merit for wind change
         
         // Reset to base
         this.totalForce = NomForces;
@@ -412,36 +545,48 @@ public class VL3 {
         this.VehicleInducedDrag = D;
 
         // Approximate skin drag
-        calcApproxSkinDrag();
-
-        // Print out
-        printResults(constant4Force,constant4Moment);
+        calcApproxSkinDrag(); 
+        // NOTE: just assume that skin drag scales with velocity squared for dCD/du (ie 2*u*drag_skin/v)
     }
 
     /**
      * Prints results 
      */
-    public void printResults(double refForce, double refMoment) {
+    public void printResults(double refArea, double refLength, String filename) {
+        double refForce = this.getQ()*refArea;
+        double refMoment = refForce*refLength;
+
+        // Print a few to screen
         System.out.println("Lift = " + VehicleLift + "N");
         System.out.println("Induced Drag = " + VehicleInducedDrag + "N");
         System.out.println("Total Drag = " + VehicleDrag +"N");
         System.out.println("Pitching Moment = " + totalMoment.y +"N-m");
         System.out.println("Cm_alpha = " + derivatives[1].y +"N-m/rad");
-        String[] coefNames= new String[6];
-        coefficents = new double[6];
+
+        // Print all to file
+        // Collect Coeffients
+        String[] coefNames= new String[7];
+        double[] coefficients = new double[7];
         coefNames[0] = "C_L (Lift)";
-        coefficents[0] = VehicleLift/refForce;
+        coefficients[0] = VehicleLift/refForce;
         coefNames[1] = "C_D (Drag)";
-        coefficents[1] = VehicleDrag/refForce;
+        coefficients[1] = VehicleDrag/refForce;
         coefNames[2] = "C_M (Pitching Moment)";
-        coefficents[2] = totalMoment.y/refMoment;
-        coefNames[3] = "C_M_alpha (Pitching Moment)";
-        coefficents[3] = derivatives[1].y/refMoment;
+        coefficients[2] = totalMoment.y/refMoment;
+        coefNames[3] = "C_M_alpha (Pitch damping)";
+        coefficients[3] = derivatives[1].y/refMoment;
         coefNames[4] = "C_N (Yaw Moment)";
-        coefficents[4] = totalMoment.z/refMoment;
+        coefficients[4] = totalMoment.z/refMoment;
         coefNames[5] = "C_L (Roll Moment)";
-        coefficents[5] = totalMoment.x/refMoment;
+        coefficients[5] = totalMoment.x/refMoment;
+        coefNames[6] = "C_N_beta (Roll damping)";
+        coefficients[6] = derivatives[3].z/refMoment;
+
+        // Other variables
+        double[] references = new double[]{airspeed, alpha, beta, Mach, staticPressure, refArea, refLength, reference.x,reference.y,reference.z};
         
+        // Print
+        ImportExport.writeCoefficients(coefficients, coefNames, references, filename);
     }
 
     /* Getters and Setters */
@@ -463,6 +608,10 @@ public class VL3 {
 
     public Cartesian getMoments() {
         return totalMoment;
+    }
+
+    public double getLift() {
+        return VehicleLift;
     }
 
 }
