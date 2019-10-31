@@ -13,7 +13,7 @@ import utils.Cartesian;
 import utils.MyMath;
 
 public class App {
-    public static final String VERSION_NO = "0.1.0";
+    public static final String VERSION_NO = "0.2.0";
 
     static JFrame gui;
 
