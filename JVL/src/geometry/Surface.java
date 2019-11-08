@@ -301,7 +301,6 @@ public class Surface {
         double dy = panels[0][0].vertices[2].y-panels[0][0].vertices[0].y;
         double starty = panels[0][0].vertices[0].y+dy/2;
         int[] control = new int[6];
-        double test = (controlYStart-starty)/dy;
         control[0] = type;
         control[1] = (int)Math.round((controlYStart-starty)/dy);
         control[2] = (int)Math.round((controlYEnd-starty)/dy);

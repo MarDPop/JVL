@@ -1,4 +1,4 @@
-package app;
+package app.view;
 
 import java.awt.*;
 import java.awt.event.MouseEvent;
@@ -17,11 +17,10 @@ import java.util.ArrayList;
  * Panel class that serves the viewing area of the code
  */
 public class ViewingPane extends JPanel implements MouseListener, MouseMotionListener, MouseWheelListener {
-
     /**
      *
      */
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 1317105100159003291L;
 
     /**
      * Surfaces in pane
@@ -58,6 +57,7 @@ public class ViewingPane extends JPanel implements MouseListener, MouseMotionLis
      */
     private int motionType = 0; 
 
+    private double scaleFactor = 0.05;
 
     private Graphics2D g2d;
 
@@ -98,8 +98,6 @@ public class ViewingPane extends JPanel implements MouseListener, MouseMotionLis
         }
 
         int[] idx = new int[] { 1, 2, 3, 0 };
-
-        double scaleFactor = 0.5;
 
         for (Surface s : surfaces) {
             for (geometry.Panel[] arr : s.getPanels()) {
@@ -150,6 +148,7 @@ public class ViewingPane extends JPanel implements MouseListener, MouseMotionLis
      * @param freeStream the freeStream to set
      */
     public void setFreeStream(Cartesian freeStream,double scaleFactor) {
+        this.scaleFactor = scaleFactor;
         this.freeStream = freeStream.mult(scaleFactor);
     }
 

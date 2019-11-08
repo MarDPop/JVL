@@ -1,11 +1,6 @@
 package app;
 
 import javax.swing.*;
-import java.awt.*;
-import java.awt.event.ActionListener;
-import java.io.File;
-import java.io.IOException;
-import java.awt.event.ActionEvent;
 
 import geometry.*;
 import app.aero.VortexLatticeSteady;
@@ -15,11 +10,10 @@ import utils.MyMath;
 public class App {
     public static final String VERSION_NO = "0.2.0";
 
-    static JFrame gui;
+    static MainFrame gui;
 
     static VortexLatticeSteady sim = new VortexLatticeSteady();
 
-    static ViewingPane vp = new ViewingPane();
 
     public static void main(String[] args) throws Exception {
         // valueTest();
@@ -28,61 +22,16 @@ public class App {
     }
 
     private static void simTest() {
-        gui = new JFrame("JVL");
-        gui.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        gui = new MainFrame(VERSION_NO);
+
         gui.setSize(1200,800);
-
-        setupSim(); 
-
-        JMenuBar bar = new JMenuBar();
-        JMenu fileMenu = new JMenu("File");
-        fileMenu.add(new JMenuItem("Open"));
-        fileMenu.add(new JMenuItem("Save"));
-        JMenu geometryMenu = new JMenu("Geometry");
-        geometryMenu.add(new JMenuItem("Import"));
-        geometryMenu.add(new JMenuItem("Add"));
-        geometryMenu.add(new JMenuItem("Edit"));
-        JMenu simMenu = new JMenu("Simulation");
-        simMenu.add(new JMenuItem("Setup"));
-        simMenu.add(new JMenuItem("Run"));
-        simMenu.add(new JMenuItem("Options"));
-        JMenu help = new JMenu("Help");
-        JMenuItem about = new JMenuItem("About");
-        about.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                JOptionPane.showMessageDialog(null, "<html><p>JVL Version " + VERSION_NO + "</p><p>Author: Marius Popescu </p></html>", "About", JOptionPane.INFORMATION_MESSAGE);
-            }
-        });
-        JMenuItem readMe = new JMenuItem("Read Me");
-        readMe.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                File file = new File("README.html");
-                try {
-                    Desktop.getDesktop().open(file);
-                } catch (IOException ex) {
-                    ex.printStackTrace();
-                }
-            }
-        });
-        help.add(about);
-        help.add(readMe);
-
-        bar.add(fileMenu);
-        bar.add(geometryMenu);
-        bar.add(simMenu);
-        bar.add(help);
-
-        gui.getContentPane().add(BorderLayout.NORTH, bar);
-
-        gui.getContentPane().add(vp);
-
+        gui.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         gui.setVisible(true);
 
+        setupSim();
         sim.run();
 
         sim.printResults(1,0.5,"results_"+System.currentTimeMillis()+".dat");
-
-        vp.getResult = true;
 
         gui.repaint();
     }
@@ -109,13 +58,13 @@ public class App {
         // Vertical Tail
         sim.surfaces.add(new Surface(new Cartesian(2.5,0,0),0.25,0.5,4,3,Math.PI/2,10*MyMath.DEG2RAD,5*MyMath.DEG2RAD));
 
-        vp.setSurfaces(sim.surfaces);
+        gui.vp.setSurfaces(sim.surfaces);
 
         sim.setFreestream(200, 0.01, 0, 101325, 298);
 
         sim.setReferencePoint(new Cartesian(0.5,0,0));
 
-        vp.setFreeStream(sim.getFreestream(),1/sim.getLift());
+        gui.vp.setFreeStream(sim.getFreestream(),1.0/sim.getFreestream().r);
         
     }
 
@@ -207,5 +156,7 @@ public class App {
 
     }
     */
+    
+
     
 }

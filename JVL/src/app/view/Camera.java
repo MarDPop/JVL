@@ -1,4 +1,4 @@
-package app;
+package app.view;
 
 import utils.*;
 
