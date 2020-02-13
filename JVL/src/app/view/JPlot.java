@@ -11,7 +11,7 @@ public class JPlot extends JFrame {
      *
      */
     private static final long serialVersionUID = -8942536461877043607L;
-    
+
     PlotPanel plotArea;
 
     public JPlot() {
@@ -30,6 +30,8 @@ public class JPlot extends JFrame {
         plotArea.plot(x,y,options);
     }
 
-    
+    public void addPlot(ArrayList<Double> x, ArrayList<Double> y, Map<String,Object> options) {
+        plotArea.plot(x,y,options);
+    }
 
 }
